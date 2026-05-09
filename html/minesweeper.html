@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minesweeper</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #f5f5f5;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    user-select: none;
+  }
+
+  .container {
+    background: #fff;
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+  }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #222;
+    letter-spacing: -0.3px;
+  }
+
+  .score-trigger {
+    font-size: 13px;
+    color: #888;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.15s;
+  }
+  .score-trigger:hover { background: #f0f0f0; }
+
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding: 8px 16px;
+    background: #f8f8f8;
+    border-radius: 10px;
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .status-bar .mine-count,
+  .status-bar .timer {
+    font-weight: 600;
+    color: #333;
+    font-size: 18px;
+  }
+
+  .status-bar .face-btn {
+    font-size: 26px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    line-height: 1;
+    transition: transform 0.1s;
+  }
+  .status-bar .face-btn:hover { transform: scale(1.15); }
+  .status-bar .face-btn:active { transform: scale(0.95); }
+
+  .board {
+    display: inline-grid;
+    gap: 2px;
+    background: #e8e8e8;
+    border-radius: 8px;
+    padding: 4px;
+  }
+
+  .cell {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.1s;
+    background: #f0f0f0;
+    border: 1px solid #e0e0e0;
+  }
+  .cell:hover:not(.revealed) { background: #e4e4e4; }
+  .cell.revealed {
+    background: #fff;
+    border-color: transparent;
+    cursor: default;
+  }
+  .cell.mine-exploded {
+    background: #ffe0e0 !important;
+  }
+  .cell.flagged::after { content: '🚩'; }
+  .cell.question::after { content: '❓'; }
+  .cell.mine::after { content: '💣'; }
+  .cell.mine-wrong { background: #ffcdd2; }
+
+  .number-1 { color: #1976d2; }
+  .number-2 { color: #388e3c; }
+  .number-3 { color: #d32f2f; }
+  .number-4 { color: #1565c0; }
+  .number-5 { color: #8d1a1a; }
+  .number-6 { color: #00838f; }
+  .number-7 { color: #212121; }
+  .number-8 { color: #9e9e9e; }
+
+  .controls {
+    margin-top: 16px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .controls button {
+    padding: 8px 18px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: #555;
+  }
+  .controls button:hover { background: #f5f5f5; border-color: #ccc; }
+  .controls button.active {
+    background: #222;
+    color: #fff;
+    border-color: #222;
+  }
+
+  .controls .custom-btn {
+    margin-left: auto;
+  }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: #fff;
+    border-radius: 14px;
+    padding: 24px;
+    min-width: 280px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+  }
+
+  .modal h3 { font-size: 17px; margin-bottom: 16px; color: #222; }
+
+  .modal .field {
+    margin-bottom: 12px;
+  }
+  .modal .field label {
+    display: block;
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 4px;
+  }
+  .modal .field input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  .modal .field input:focus {
+    outline: none;
+    border-color: #222;
+  }
+
+  .modal .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 16px;
+  }
+  .modal .modal-actions button {
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    background: #fff;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .modal .modal-actions button.primary {
+    background: #222;
+    color: #fff;
+    border-color: #222;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #222;
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    z-index: 200;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="container">
+    <div class="header">
+      <h1>Minesweeper</h1>
+      <button class="score-trigger" id="scoreTrigger">🏆 Records</button>
+    </div>
+
+    <div class="status-bar">
+      <span class="mine-count" id="mineCount">💣 000</span>
+      <button class="face-btn" id="faceBtn">😊</button>
+      <span class="timer" id="timer">⏱ 000</span>
+    </div>
+
+    <div class="board" id="board"></div>
+
+    <div class="controls" id="controls">
+      <button data-difficulty="beginner" class="active">初级</button>
+      <button data-difficulty="intermediate">中级</button>
+      <button data-difficulty="expert">高级</button>
+      <button class="custom-btn" id="customBtn">🎛 自定义</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="customModal">
+  <div class="modal">
+    <h3>自定义难度</h3>
+    <div class="field">
+      <label>行数 (5-50)</label>
+      <input type="number" id="customRows" value="12" min="5" max="50">
+    </div>
+    <div class="field">
+      <label>列数 (5-50)</label>
+      <input type="number" id="customCols" value="12" min="5" max="50">
+    </div>
+    <div class="field">
+      <label>雷数</label>
+      <input type="number" id="customMines" value="20" min="1">
+    </div>
+    <div class="modal-actions">
+      <button id="customCancel">取消</button>
+      <button class="primary" id="customConfirm">开始游戏</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="scoreModal">
+  <div class="modal">
+    <h3>🏆 最佳成绩</h3>
+    <div id="scoreList"></div>
+    <div class="modal-actions"><button id="scoreClose">关闭</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="resultModal">
+  <div class="modal">
+    <h3 id="resultTitle"></h3>
+    <p id="resultBody" style="color:#666;font-size:14px;"></p>
+    <div class="modal-actions"><button class="primary" id="resultOk">再来一局</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+// ===== Cell =====
+class Cell {
+  constructor(row, col) {
+    this.row = row;
+    this.col = col;
+    this.isMine = false;
+    this.isRevealed = false;
+    this.isFlagged = false;
+    this.isQuestion = false;
+    this.adjacentMines = 0;
+  }
+
+  reveal() {
+    if (this.isRevealed || this.isFlagged) return false;
+    this.isRevealed = true;
+    this.isQuestion = false;
+    return true;
+  }
+
+  toggleFlag() {
+    if (this.isRevealed) return false;
+    if (this.isFlagged) { this.isFlagged = false; return 'unmarked'; }
+    if (this.isQuestion) { this.isQuestion = false; this.isFlagged = true; return 'flagged'; }
+    this.isFlagged = true;
+    return 'flagged';
+  }
+
+  toggleQuestion() {
+    if (this.isRevealed || this.isFlagged) return false;
+    if (this.isQuestion) { this.isQuestion = false; return 'unmarked'; }
+    this.isQuestion = true;
+    return 'question';
+  }
+}
+
+// ===== Timer =====
+class Timer {
+  constructor(displayEl) {
+    this.displayEl = displayEl;
+    this.elapsed = 0;
+    this.interval = null;
+    this.running = false;
+  }
+
+  start() {
+    if (this.running) return;
+    this.running = true;
+    this.interval = setInterval(() => {
+      this.elapsed++;
+      this.displayEl.textContent = '⏱ ' + String(this.elapsed).padStart(3, '0');
+    }, 1000);
+  }
+
+  stop() {
+    this.running = false;
+    if (this.interval) { clearInterval(this.interval); this.interval = null; }
+  }
+
+  reset() {
+    this.stop();
+    this.elapsed = 0;
+    this.displayEl.textContent = '⏱ 000';
+  }
+
+  getTime() { return this.elapsed; }
+}
+
+// ===== Board =====
+class Board {
+  constructor(rows, cols, mines) {
+    this.rows = rows;
+    this.cols = cols;
+    this.mines = mines;
+    this.cells = [];
+    this.firstClick = true;
+    this.gameOver = false;
+    this.initGrid();
+  }
+
+  initGrid() {
+    this.cells = [];
+    for (let r = 0; r < this.rows; r++) {
+      this.cells[r] = [];
+      for (let c = 0; c < this.cols; c++) {
+        this.cells[r][c] = new Cell(r, c);
+      }
+    }
+  }
+
+  placeMines(safeRow, safeCol) {
+    const safeCells = new Set();
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const nr = safeRow + dr, nc = safeCol + dc;
+        if (nr >= 0 && nr < this.rows && nc >= 0 && nc < this.cols) {
+          safeCells.add(nr * this.cols + nc);
+        }
+      }
+    }
+
+    let placed = 0;
+    while (placed < this.mines) {
+      const r = Math.floor(Math.random() * this.rows);
+      const c = Math.floor(Math.random() * this.cols);
+      const key = r * this.cols + c;
+      if (this.cells[r][c].isMine || safeCells.has(key)) continue;
+      this.cells[r][c].isMine = true;
+      placed++;
+    }
+
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        if (this.cells[r][c].isMine) continue;
+        this.cells[r][c].adjacentMines = this.countAdjacentMines(r, c);
+      }
+    }
+  }
+
+  countAdjacentMines(row, col) {
+    let count = 0;
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const nr = row + dr, nc = col + dc;
+        if (nr >= 0 && nr < this.rows && nc >= 0 && nc < this.cols && this.cells[nr][nc].isMine) {
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  revealCell(row, col) {
+    if (this.gameOver) return { action: 'none' };
+    const cell = this.cells[row][col];
+    if (cell.isRevealed || cell.isFlagged) return { action: 'none' };
+
+    if (this.firstClick) {
+      this.placeMines(row, col);
+      this.firstClick = false;
+    }
+
+    if (cell.isMine) {
+      cell.isRevealed = true;
+      this.gameOver = true;
+      return { action: 'mine' };
+    }
+
+    this.floodFill(row, col);
+
+    if (this.checkWin()) {
+      this.gameOver = true;
+      return { action: 'win' };
+    }
+    return { action: 'reveal' };
+  }
+
+  floodFill(row, col) {
+    const stack = [[row, col]];
+    while (stack.length > 0) {
+      const [r, c] = stack.pop();
+      const cell = this.cells[r][c];
+      if (cell.isRevealed || cell.isFlagged || cell.isMine) continue;
+      cell.isRevealed = true;
+      if (cell.adjacentMines === 0) {
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const nr = r + dr, nc = c + dc;
+            if (nr >= 0 && nr < this.rows && nc >= 0 && nc < this.cols) {
+              stack.push([nr, nc]);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  chord(row, col) {
+    if (this.gameOver) return { action: 'none' };
+    const cell = this.cells[row][col];
+    if (!cell.isRevealed || cell.adjacentMines === 0) return { action: 'none' };
+
+    const neighbors = this.getNeighbors(row, col);
+    const flagCount = neighbors.filter(n => n.cell.isFlagged).length;
+    if (flagCount !== cell.adjacentMines) return { action: 'none' };
+
+    let hitMine = false;
+    for (const { r, c } of neighbors) {
+      const n = this.cells[r][c];
+      if (!n.isRevealed && !n.isFlagged) {
+        if (n.isMine) {
+          n.isRevealed = true;
+          hitMine = true;
+          this.gameOver = true;
+        } else {
+          n.isRevealed = true;
+        }
+      }
+    }
+
+    if (hitMine) return { action: 'mine' };
+    if (this.checkWin()) {
+      this.gameOver = true;
+      return { action: 'win' };
+    }
+    return { action: 'reveal' };
+  }
+
+  getNeighbors(row, col) {
+    const result = [];
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const nr = row + dr, nc = col + dc;
+        if (nr >= 0 && nr < this.rows && nc >= 0 && nc < this.cols) {
+          result.push({ r: nr, c: nc, cell: this.cells[nr][nc] });
+        }
+      }
+    }
+    return result;
+  }
+
+  checkWin() {
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const cell = this.cells[r][c];
+        if (!cell.isMine && !cell.isRevealed) return false;
+      }
+    }
+    return true;
+  }
+
+  revealAllMines() {
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const cell = this.cells[r][c];
+        if (cell.isMine && !cell.isFlagged) {
+          cell.isRevealed = true;
+        }
+      }
+    }
+  }
+}
+
+// ===== ScoreStore =====
+class ScoreStore {
+  constructor() {
+    this.key = 'minesweeper_best_scores';
+    this.difficultyNames = { beginner: '初级', intermediate: '中级', expert: '高级' };
+  }
+
+  load() {
+    try {
+      const data = localStorage.getItem(this.key);
+      return data ? JSON.parse(data) : {};
+    } catch { return {}; }
+  }
+
+  save(scores) {
+    localStorage.setItem(this.key, JSON.stringify(scores));
+  }
+
+  getBest(difficulty) {
+    const scores = this.load();
+    return scores[difficulty] || null;
+  }
+
+  isRecord(difficulty, time) {
+    if (!this.difficultyNames[difficulty]) return false;
+    const best = this.getBest(difficulty);
+    return !best || time < best.time;
+  }
+
+  setRecord(difficulty, time) {
+    if (!this.difficultyNames[difficulty]) return;
+    const scores = this.load();
+    scores[difficulty] = { time, date: new Date().toISOString().slice(0, 10) };
+    this.save(scores);
+  }
+
+  getAll() {
+    return this.load();
+  }
+}
+
+// ===== MinesweeperGame =====
+class MinesweeperGame {
+  constructor() {
+    this.difficulties = {
+      beginner: { rows: 9, cols: 9, mines: 10 },
+      intermediate: { rows: 16, cols: 16, mines: 40 },
+      expert: { rows: 16, cols: 30, mines: 99 }
+    };
+    this.currentDifficulty = 'beginner';
+    this.customSettings = { rows: 12, cols: 12, mines: 20 };
+
+    this.boardEl = document.getElementById('board');
+    this.mineCountEl = document.getElementById('mineCount');
+    this.timerEl = document.getElementById('timer');
+    this.faceBtn = document.getElementById('faceBtn');
+    this.scoreTrigger = document.getElementById('scoreTrigger');
+
+    this.timer = new Timer(this.timerEl);
+    this.scoreStore = new ScoreStore();
+    this.board = null;
+    this.cellElements = [];
+
+    this.initControls();
+    this.initModals();
+    this.newGame();
+  }
+
+  getSettings() {
+    if (this.currentDifficulty === 'custom') return this.customSettings;
+    return this.difficulties[this.currentDifficulty];
+  }
+
+  newGame() {
+    this.timer.reset();
+    const settings = this.getSettings();
+    this.board = new Board(settings.rows, settings.cols, settings.mines);
+    this.render();
+    this.faceBtn.textContent = '😊';
+  }
+
+  render() {
+    const settings = this.getSettings();
+    this.boardEl.style.gridTemplateColumns = `repeat(${settings.cols}, 36px)`;
+    this.boardEl.innerHTML = '';
+
+    this.cellElements = [];
+    for (let r = 0; r < this.board.rows; r++) {
+      this.cellElements[r] = [];
+      for (let c = 0; c < this.board.cols; c++) {
+        const el = document.createElement('div');
+        el.className = 'cell';
+        el.dataset.row = r;
+        el.dataset.col = c;
+        this.boardEl.appendChild(el);
+        this.cellElements[r][c] = el;
+      }
+    }
+
+    this.updateMineCount();
+  }
+
+  updateMineCount() {
+    let flagged = 0;
+    if (this.board) {
+      for (let r = 0; r < this.board.rows; r++) {
+        for (let c = 0; c < this.board.cols; c++) {
+          if (this.board.cells[r][c].isFlagged) flagged++;
+        }
+      }
+    }
+    const remaining = this.board ? this.board.mines - flagged : 0;
+    this.mineCountEl.textContent = '💣 ' + String(Math.max(0, remaining)).padStart(3, '0');
+  }
+
+  updateCellView(row, col) {
+    const cell = this.board.cells[row][col];
+    const el = this.cellElements[row][col];
+    el.className = 'cell';
+
+    if (cell.isRevealed) {
+      el.classList.add('revealed');
+      if (cell.isMine) {
+        el.classList.add('mine');
+        el.textContent = '';
+      } else if (cell.adjacentMines > 0) {
+        el.classList.add('number-' + cell.adjacentMines);
+        el.textContent = cell.adjacentMines;
+      } else {
+        el.textContent = '';
+      }
+    } else {
+      el.textContent = '';
+      if (cell.isFlagged) el.classList.add('flagged');
+      else if (cell.isQuestion) el.classList.add('question');
+    }
+  }
+
+  updateAllCells() {
+    for (let r = 0; r < this.board.rows; r++) {
+      for (let c = 0; c < this.board.cols; c++) {
+        this.updateCellView(r, c);
+      }
+    }
+  }
+
+  handleCellClick(row, col) {
+    if (!this.board || this.board.gameOver) return;
+    if (this.board.firstClick) {
+      this.timer.start();
+    }
+
+    const result = this.board.revealCell(row, col);
+    this.updateCellView(row, col);
+
+    if (result.action === 'mine') {
+      this.onLose(row, col);
+    } else if (result.action === 'reveal') {
+      this.updateFloodFillView();
+    }
+
+    if (result.action === 'win') {
+      this.onWin();
+    }
+  }
+
+  handleRightClick(row, col) {
+    if (!this.board || this.board.gameOver) return;
+    const cell = this.board.cells[row][col];
+    if (cell.isRevealed) return;
+
+    // Cycle: unmarked → flagged → question → unmarked
+    if (cell.isFlagged) {
+      cell.isFlagged = false;
+      cell.isQuestion = true;
+    } else if (cell.isQuestion) {
+      cell.isQuestion = false;
+    } else {
+      cell.isFlagged = true;
+    }
+    this.updateCellView(row, col);
+    this.updateMineCount();
+  }
+
+  handleChord(row, col) {
+    if (!this.board || this.board.gameOver) return;
+    const cell = this.board.cells[row][col];
+    if (!cell.isRevealed || cell.adjacentMines === 0) return;
+
+    const result = this.board.chord(row, col);
+    this.updateAllCells();
+
+    if (result.action === 'mine') {
+      this.onLose(row, col);
+    } else if (result.action === 'win') {
+      this.onWin();
+    }
+  }
+
+  updateFloodFillView() {
+    for (let r = 0; r < this.board.rows; r++) {
+      for (let c = 0; c < this.board.cols; c++) {
+        if (this.board.cells[r][c].isRevealed) {
+          this.updateCellView(r, c);
+        }
+      }
+    }
+  }
+
+  onLose(row, col) {
+    this.timer.stop();
+    this.faceBtn.textContent = '😵';
+    this.board.revealAllMines();
+    this.updateAllCells();
+
+    // Mark the exploded cell with red background
+    this.cellElements[row][col].classList.add('mine-exploded');
+
+    // Mark wrongly flagged cells
+    for (let r = 0; r < this.board.rows; r++) {
+      for (let c = 0; c < this.board.cols; c++) {
+        const cell = this.board.cells[r][c];
+        if (cell.isFlagged && !cell.isMine) {
+          this.cellElements[r][c].className = 'cell mine-wrong';
+          this.cellElements[r][c].textContent = '❌';
+        }
+      }
+    }
+    this.showResult(false);
+  }
+
+  onWin() {
+    this.timer.stop();
+    this.faceBtn.textContent = '🎉';
+    const time = this.timer.getTime();
+    const isRecord = this.scoreStore.isRecord(this.currentDifficulty, time);
+    if (isRecord) {
+      this.scoreStore.setRecord(this.currentDifficulty, time);
+    }
+    this.showResult(true, time, isRecord);
+  }
+
+  showResult(won, time, isRecord) {
+    const titleEl = document.getElementById('resultTitle');
+    const bodyEl = document.getElementById('resultBody');
+    if (won) {
+      titleEl.textContent = '🎉 恭喜通关！';
+      bodyEl.textContent = `用时 ${time} 秒` + (isRecord ? ' 🏆 新纪录！' : '');
+    } else {
+      titleEl.textContent = '💥 踩雷了！';
+      bodyEl.textContent = '再接再厉，下次小心！';
+    }
+    document.getElementById('resultModal').classList.add('open');
+  }
+
+  initControls() {
+    document.querySelectorAll('.controls button[data-difficulty]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.controls button[data-difficulty]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.currentDifficulty = btn.dataset.difficulty;
+        this.newGame();
+      });
+    });
+  }
+
+  initModals() {
+    document.getElementById('customBtn').addEventListener('click', () => {
+      document.getElementById('customRows').value = this.customSettings.rows;
+      document.getElementById('customCols').value = this.customSettings.cols;
+      document.getElementById('customMines').value = this.customSettings.mines;
+      document.getElementById('customModal').classList.add('open');
+    });
+    document.getElementById('customCancel').addEventListener('click', () => {
+      document.getElementById('customModal').classList.remove('open');
+    });
+    document.getElementById('customConfirm').addEventListener('click', () => {
+      const rows = parseInt(document.getElementById('customRows').value);
+      const cols = parseInt(document.getElementById('customCols').value);
+      const mines = parseInt(document.getElementById('customMines').value);
+      if (rows < 5 || rows > 50 || cols < 5 || cols > 50) { this.showToast('行和列必须在 5-50 之间'); return; }
+      if (mines < 1 || mines >= rows * cols) { this.showToast('雷数必须介于 1 到 ' + (rows * cols - 1) + ' 之间'); return; }
+      this.customSettings = { rows, cols, mines };
+      this.currentDifficulty = 'custom';
+      document.querySelectorAll('.controls button[data-difficulty]').forEach(b => b.classList.remove('active'));
+      document.getElementById('customModal').classList.remove('open');
+      this.newGame();
+    });
+
+    document.getElementById('scoreTrigger').addEventListener('click', () => this.showScores());
+    document.getElementById('scoreClose').addEventListener('click', () => {
+      document.getElementById('scoreModal').classList.remove('open');
+    });
+
+    document.getElementById('resultOk').addEventListener('click', () => {
+      document.getElementById('resultModal').classList.remove('open');
+      this.newGame();
+    });
+
+    this.faceBtn.addEventListener('click', () => this.newGame());
+  }
+
+  showScores() {
+    const listEl = document.getElementById('scoreList');
+    const scores = this.scoreStore.getAll();
+    const names = { beginner: '初级 9×9', intermediate: '中级 16×16', expert: '高级 16×30' };
+    listEl.innerHTML = '';
+    let hasScore = false;
+    for (const [key, name] of Object.entries(names)) {
+      const record = scores[key];
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;';
+      if (record) {
+        hasScore = true;
+        div.innerHTML = `<span>${name}</span><span>${record.time} 秒 (${record.date})</span>`;
+      } else {
+        div.innerHTML = `<span>${name}</span><span style="color:#bbb">暂无记录</span>`;
+      }
+      listEl.appendChild(div);
+    }
+    if (!hasScore) {
+      listEl.innerHTML = '<p style="color:#999;text-align:center;padding:16px 0;">还没有任何记录，快去玩一局吧！</p>';
+    }
+    document.getElementById('scoreModal').classList.add('open');
+  }
+
+  showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2500);
+  }
+}
+
+// ===== Init =====
+document.addEventListener('DOMContentLoaded', () => {
+  const game = new MinesweeperGame();
+  let leftDownCell = null;
+  let rightDownCell = null;
+
+  document.getElementById('board').addEventListener('mousedown', (e) => {
+    const cellEl = e.target.closest('.cell');
+    if (!cellEl) return;
+    const row = parseInt(cellEl.dataset.row);
+    const col = parseInt(cellEl.dataset.col);
+
+    if (e.button === 0) {
+      leftDownCell = { row, col };
+    }
+    if (e.button === 2) {
+      rightDownCell = { row, col };
+      game.handleRightClick(row, col);
+    }
+
+    // Both left+right pressed → chord
+    if (leftDownCell && rightDownCell &&
+        leftDownCell.row === rightDownCell.row &&
+        leftDownCell.col === rightDownCell.col) {
+      game.handleChord(row, col);
+      leftDownCell = null;
+      rightDownCell = null;
+    }
+  });
+
+  document.getElementById('board').addEventListener('mouseup', (e) => {
+    const cellEl = e.target.closest('.cell');
+    if (!cellEl) return;
+    const row = parseInt(cellEl.dataset.row);
+    const col = parseInt(cellEl.dataset.col);
+
+    if (e.button === 0) {
+      // Only reveal if left was pressed alone on this cell
+      if (leftDownCell && leftDownCell.row === row && leftDownCell.col === col && !rightDownCell) {
+        game.handleCellClick(row, col);
+      }
+      leftDownCell = null;
+    }
+    if (e.button === 2) {
+      rightDownCell = null;
+    }
+  });
+
+  document.getElementById('board').addEventListener('mouseleave', () => {
+    leftDownCell = null;
+    rightDownCell = null;
+  });
+
+  document.getElementById('board').addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+  });
+
+  document.getElementById('board').addEventListener('auxclick', (e) => {
+    if (e.button === 1) {
+      const cellEl = e.target.closest('.cell');
+      if (!cellEl) return;
+      const row = parseInt(cellEl.dataset.row);
+      const col = parseInt(cellEl.dataset.col);
+      game.handleChord(row, col);
+    }
+  });
+});
+</script>
+</body>
+</html>

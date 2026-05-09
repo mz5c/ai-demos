@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>快速排序可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0f0f1a;
+    color: #e0e0e0;
+    font-family: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', monospace;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ===== Header ===== */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 28px;
+    background: #16162a;
+    border-bottom: 1px solid #2a2a4a;
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    background: linear-gradient(135deg, #6c63ff, #ff6b9d);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 0.5px;
+  }
+
+  .stats {
+    display: flex;
+    gap: 24px;
+    font-size: 13px;
+    color: #888;
+  }
+
+  .stats span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .stats .num {
+    color: #e0e0e0;
+    font-weight: 600;
+    min-width: 24px;
+  }
+
+  .step-text {
+    font-size: 14px;
+    color: #aaa;
+    padding: 10px 28px;
+    background: #12122a;
+    border-bottom: 1px solid #1e1e3a;
+    flex-shrink: 0;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .step-text .label {
+    color: #666;
+    font-size: 12px;
+  }
+
+  .step-text .content {
+    color: #c8c8ff;
+  }
+
+  /* ===== Canvas ===== */
+  #canvas-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ===== Legend overlay ===== */
+  .legend {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 18px;
+    background: rgba(15, 15, 30, 0.8);
+    backdrop-filter: blur(6px);
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: 1px solid #2a2a4a;
+    font-size: 12px;
+    pointer-events: none;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+  }
+
+  /* ===== Controls ===== */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 28px;
+    background: #16162a;
+    border-top: 1px solid #2a2a4a;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  .controls .group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .controls .divider {
+    width: 1px;
+    height: 28px;
+    background: #2a2a4a;
+  }
+
+  button {
+    background: #2a2a5a;
+    border: 1px solid #3a3a6a;
+    color: #e0e0e0;
+    padding: 7px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+
+  button:hover:not(:disabled) {
+    background: #3a3a7a;
+    border-color: #5a5a9a;
+    transform: translateY(-1px);
+  }
+
+  button:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  button.primary {
+    background: linear-gradient(135deg, #6c63ff, #8b5cf6);
+    border-color: #8b5cf6;
+  }
+
+  button.primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #7c73ff, #9b6cff);
+  }
+
+  button.danger {
+    border-color: #ff4757;
+    color: #ff4757;
+  }
+
+  button.danger:hover:not(:disabled) {
+    background: rgba(255, 71, 87, 0.15);
+  }
+
+  label {
+    font-size: 13px;
+    color: #888;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: #2a2a5a;
+    outline: none;
+    width: 100px;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #6c63ff;
+    cursor: pointer;
+    border: 2px solid #8b5cf6;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #6c63ff;
+    cursor: pointer;
+    border: 2px solid #8b5cf6;
+  }
+
+  .val {
+    color: #c8c8ff;
+    font-size: 13px;
+    min-width: 28px;
+    text-align: center;
+  }
+
+  /* ===== Completion overlay ===== */
+  .completion {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.6s;
+  }
+
+  .completion.show {
+    opacity: 1;
+  }
+
+  .completion .msg {
+    font-size: 32px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #ffd700, #ff6b9d);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 60px rgba(255, 215, 0, 0.2);
+  }
+
+  @media (max-width: 700px) {
+    header { flex-direction: column; gap: 8px; padding: 10px 16px; }
+    header h1 { font-size: 16px; }
+    .stats { font-size: 12px; gap: 14px; }
+    .step-text { font-size: 12px; padding: 8px 16px; }
+    .controls { padding: 10px 16px; gap: 10px; }
+    .legend { font-size: 10px; gap: 10px; padding: 6px 12px; }
+    input[type="range"] { width: 70px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ 快速排序</h1>
+  <div class="stats">
+    <span>比较 <span class="num" id="cmpCount">0</span></span>
+    <span>交换 <span class="num" id="swapCount">0</span></span>
+    <span>数组 <span class="num" id="arrSize">30</span></span>
+  </div>
+</header>
+
+<div class="step-text">
+  <span class="label">▸</span>
+  <span class="content" id="stepText">点击「排序」开始演示</span>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="canvas"></canvas>
+  <div class="completion" id="completion"><span class="msg">排序完成 ✓</span></div>
+  <div class="legend">
+    <span class="legend-item"><span class="legend-dot" style="background:#4a9eff"></span>默认</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#ff4757"></span>基准</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#ffa502"></span>左指针</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#2ed573"></span>当前元素</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#a855f7"></span>交换</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#ffd700"></span>已排序</span>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="group">
+    <button id="btnGenerate">生成新数组</button>
+    <button class="primary" id="btnSort">排序</button>
+    <button id="btnReset" disabled>重置</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="group">
+    <label>长度
+      <input type="range" id="sizeSlider" min="8" max="60" value="30">
+      <span class="val" id="sizeVal">30</span>
+    </label>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="group">
+    <label>速度
+      <input type="range" id="speedSlider" min="1" max="10" value="6">
+      <span class="val" id="speedVal">6</span>
+    </label>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 状态与配置
+// ============================================================
+const State = {
+  DEFAULT: 0,
+  PIVOT: 1,
+  LEFT: 2,
+  CURRENT: 3,
+  SWAPPING: 4,
+  SORTED: 5,
+};
+
+const COLORS = {
+  [State.DEFAULT]: '#4a9eff',
+  [State.PIVOT]:   '#ff4757',
+  [State.LEFT]:    '#ffa502',
+  [State.CURRENT]: '#2ed573',
+  [State.SWAPPING]: '#a855f7',
+  [State.SORTED]:  '#ffd700',
+};
+
+const GLOW_COLORS = {
+  [State.DEFAULT]: 'rgba(74,158,255,0.15)',
+  [State.PIVOT]:   'rgba(255,71,87,0.35)',
+  [State.LEFT]:    'rgba(255,165,2,0.30)',
+  [State.CURRENT]: 'rgba(46,213,115,0.30)',
+  [State.SWAPPING]: 'rgba(168,85,247,0.35)',
+  [State.SORTED]:  'rgba(255,215,0,0.25)',
+};
+
+// ============================================================
+// DOM 引用
+// ============================================================
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+const stepText    = document.getElementById('stepText');
+const cmpCountEl  = document.getElementById('cmpCount');
+const swapCountEl = document.getElementById('swapCount');
+const arrSizeEl   = document.getElementById('arrSize');
+const completion  = document.getElementById('completion');
+
+const btnGenerate = document.getElementById('btnGenerate');
+const btnSort     = document.getElementById('btnSort');
+const btnReset    = document.getElementById('btnReset');
+const sizeSlider  = document.getElementById('sizeSlider');
+const sizeVal     = document.getElementById('sizeVal');
+const speedSlider = document.getElementById('speedSlider');
+const speedVal    = document.getElementById('speedVal');
+
+// ============================================================
+// 核心数据
+// ============================================================
+let arr = [];
+let states = [];
+let cmpCount = 0;
+let swapCount = 0;
+
+let sorting = false;
+let paused = false;
+let canceled = false;
+let done = false;
+
+let pauseResolve = null;
+
+// ============================================================
+// 速度映射
+// ============================================================
+function getDelay() {
+  const v = parseInt(speedSlider.value);
+  // 1 → 400ms, 10 → 5ms  (指数/对数感觉)
+  return Math.round(400 * Math.pow(0.5, (v - 1) / 3));
+}
+
+// ============================================================
+// Canvas 尺寸管理
+// ============================================================
+function resizeCanvas() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = rect.width  * dpr;
+  canvas.height = rect.height * dpr;
+  canvas.style.width  = rect.width  + 'px';
+  canvas.style.height = rect.height + 'px';
+  ctx.scale(dpr, dpr);
+  // 保存逻辑尺寸供绘制用
+  canvas._w = rect.width;
+  canvas._h = rect.height;
+  draw();
+}
+
+window.addEventListener('resize', resizeCanvas);
+
+// ============================================================
+// 工具函数
+// ============================================================
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function tick() {
+  while (paused && !canceled) {
+    await sleep(50);
+  }
+  if (canceled) throw new Error('canceled');
+  await sleep(getDelay());
+}
+
+function setStep(text) {
+  stepText.textContent = text;
+}
+
+function updateStats() {
+  cmpCountEl.textContent  = cmpCount;
+  swapCountEl.textContent = swapCount;
+}
+
+// ============================================================
+// 数组生成
+// ============================================================
+function generateArray(size) {
+  arr = [];
+  states = [];
+  for (let i = 0; i < size; i++) {
+    arr.push(Math.floor(Math.random() * 340) + 60); // 60–400
+    states.push(State.DEFAULT);
+  }
+  cmpCount = 0;
+  swapCount = 0;
+  done = false;
+  updateStats();
+  arrSizeEl.textContent = size;
+  setStep('新数组已生成，点击「排序」开始演示');
+  completion.classList.remove('show');
+  draw();
+}
+
+// ============================================================
+// 绘制
+// ============================================================
+function draw() {
+  const W = canvas._w || canvas.parentElement.clientWidth;
+  const H = canvas._h || canvas.parentElement.clientHeight;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // 背景
+  const grad = ctx.createLinearGradient(0, H, 0, 0);
+  grad.addColorStop(0, '#0f0f1a');
+  grad.addColorStop(1, '#16162e');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  if (!arr.length) return;
+
+  const n = arr.length;
+  const padX = 24;
+  const padTop = 16;
+  const padBottom = 20;
+  const chartW = W - padX * 2;
+  const chartH = H - padTop - padBottom;
+  const barW = chartW / n;
+  const gap = Math.min(3, Math.max(1, barW * 0.15));
+  const effectiveW = barW - gap;
+
+  const maxVal = Math.max(...arr);
+  const minVal = Math.min(...arr);
+  const range = maxVal - minVal || 1;
+
+  for (let i = 0; i < n; i++) {
+    const x = padX + i * barW + gap / 2;
+    const ratio = (arr[i] - minVal) / range;
+    const barH = Math.max(4, ratio * (chartH - 8) + 4);
+    const y = H - padBottom - barH;
+
+    const color = COLORS[states[i]] || COLORS[State.DEFAULT];
+    const glow = GLOW_COLORS[states[i]] || GLOW_COLORS[State.DEFAULT];
+
+    // 发光
+    if (states[i] !== State.DEFAULT) {
+      ctx.save();
+      ctx.shadowColor = glow;
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.3;
+      roundRect(ctx, x - 2, y - 2, effectiveW + 4, barH + 4, 4);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // 柱体渐变
+    const barGrad = ctx.createLinearGradient(x, y, x + effectiveW, y);
+    barGrad.addColorStop(0, color);
+    barGrad.addColorStop(1, lighten(color, 20));
+    ctx.fillStyle = barGrad;
+    roundRect(ctx, x, y, effectiveW, barH, 4);
+    ctx.fill();
+
+    // 柱体高光（顶部细线）
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    roundRect(ctx, x, y, effectiveW, Math.min(3, barH * 0.08), 2);
+    ctx.fill();
+
+    // 数值标签（间距够才显示）
+    if (barW > 22 && barH > 20) {
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.font = '10px "SF Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(arr[i], x + effectiveW / 2, y - 4);
+    }
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// 简单颜色变亮
+function lighten(hex, pct) {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  const l = (pct / 100);
+  const rr = Math.min(255, Math.round(r + (255 - r) * l));
+  const gg = Math.min(255, Math.round(g + (255 - g) * l));
+  const bb = Math.min(255, Math.round(b + (255 - b) * l));
+  return `rgb(${rr},${gg},${bb})`;
+}
+
+// ============================================================
+// 快排实现（异步）
+// ============================================================
+async function quickSort(lo, hi) {
+  if (canceled) return;
+  if (lo >= hi) {
+    if (lo >= 0 && lo < arr.length) {
+      states[lo] = State.SORTED;
+      draw();
+    }
+    return;
+  }
+
+  // 标记整个区间
+  setStep(`分区区间 [${lo}, ${hi}]`);
+
+  const pivotIdx = await partition(lo, hi);
+  if (canceled) return;
+
+  // pivot 归位
+  states[pivotIdx] = State.SORTED;
+  setStep(`基准值 ${arr[pivotIdx]} 已归位到索引 ${pivotIdx}`);
+  draw();
+  await tick();
+  if (canceled) return;
+
+  // 递归排序左右
+  await quickSort(lo, pivotIdx - 1);
+  if (canceled) return;
+  await quickSort(pivotIdx + 1, hi);
+  if (canceled) return;
+}
+
+async function partition(lo, hi) {
+  const pivot = arr[hi];
+  states[hi] = State.PIVOT;
+  setStep(`选择基准值 pivot = ${pivot}`);
+  draw();
+  await tick();
+  if (canceled) return -1;
+
+  let i = lo - 1;
+  for (let j = lo; j < hi; j++) {
+    if (canceled) return -1;
+
+    // 重置非特殊状态
+    for (let k = lo; k <= hi; k++) {
+      if (states[k] !== State.PIVOT && states[k] !== State.SORTED) {
+        states[k] = State.DEFAULT;
+      }
+    }
+    if (i >= lo) states[i] = State.LEFT;
+    states[j] = State.CURRENT;
+
+    cmpCount++;
+    updateStats();
+    setStep(`比较 arr[${j}] = ${arr[j]} 与基准值 ${pivot}`);
+    draw();
+    await tick();
+    if (canceled) return -1;
+
+    if (arr[j] < pivot) {
+      i++;
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+
+      // 标记交换的两个元素
+      states[i] = State.SWAPPING;
+      states[j] = State.SWAPPING;
+
+      swapCount++;
+      updateStats();
+      setStep(`${arr[j]} < ${pivot}，交换 arr[${i}] 和 arr[${j}]`);
+      draw();
+      await tick();
+      if (canceled) return -1;
+
+      // 交换后恢复左指针标记
+      if (i > lo) states[i - 1] = State.DEFAULT;
+      states[i] = State.LEFT;
+    } else {
+      setStep(`${arr[j]} ≥ ${pivot}，指针右移`);
+      draw();
+      await tick();
+      if (canceled) return -1;
+    }
+  }
+
+  // 归位 pivot
+  [arr[i + 1], arr[hi]] = [arr[hi], arr[i + 1]];
+  swapCount++;
+  updateStats();
+
+  // 标记交换
+  states[hi] = State.SWAPPING;
+  states[i + 1] = State.SWAPPING;
+  setStep(`基准值 ${pivot} 与 arr[${i + 1}] 交换，pivot 归位`);
+  draw();
+  await tick();
+  if (canceled) return -1;
+
+  // 清理标记
+  for (let k = lo; k <= hi; k++) {
+    if (states[k] !== State.SORTED) {
+      states[k] = State.DEFAULT;
+    }
+  }
+
+  return i + 1;
+}
+
+// ============================================================
+// 排序完成
+// ============================================================
+async function finishSort() {
+  sorting = false;
+  paused = false;
+  done = true;
+
+  // 逐个高亮为金色
+  for (let i = 0; i < arr.length; i++) {
+    states[i] = State.SORTED;
+    draw();
+    await sleep(12);
+  }
+
+  setStep('排序完成 ✓');
+  completion.classList.add('show');
+  updateButtons();
+}
+
+// ============================================================
+// 按钮状态控制
+// ============================================================
+function updateButtons() {
+  btnGenerate.disabled = sorting;
+  sizeSlider.disabled = sorting;
+  btnReset.disabled = sorting;
+  btnSort.disabled = done;
+
+  if (sorting && paused) {
+    btnSort.textContent = '继续';
+    btnSort.className = 'primary';
+  } else if (sorting) {
+    btnSort.textContent = '暂停';
+    btnSort.className = 'danger';
+  } else {
+    btnSort.textContent = '排序';
+    btnSort.className = 'primary';
+  }
+}
+
+// ============================================================
+// 主排序入口
+// ============================================================
+async function startSort() {
+  if (sorting && paused) {
+    // 继续
+    paused = false;
+    updateButtons();
+    if (pauseResolve) {
+      pauseResolve();
+      pauseResolve = null;
+    }
+    return;
+  }
+
+  if (sorting) {
+    // 暂停
+    paused = true;
+    updateButtons();
+    return;
+  }
+
+  // 开始新排序
+  sorting = true;
+  paused = false;
+  canceled = false;
+  done = false;
+  cmpCount = 0;
+  swapCount = 0;
+  updateStats();
+  completion.classList.remove('show');
+
+  // 重置状态
+  for (let i = 0; i < arr.length; i++) states[i] = State.DEFAULT;
+  draw();
+
+  updateButtons();
+
+  try {
+    await quickSort(0, arr.length - 1);
+    if (canceled) {
+      // 被取消，不做特殊处理
+      return;
+    }
+    await finishSort();
+  } catch (e) {
+    if (e.message === 'canceled') return;
+    throw e;
+  }
+}
+
+// ============================================================
+// 重置
+// ============================================================
+function resetArray() {
+  if (sorting) return;
+
+  // 打乱数组但保留相同数值
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  for (let i = 0; i < arr.length; i++) states[i] = State.DEFAULT;
+  cmpCount = 0;
+  swapCount = 0;
+  done = false;
+  updateStats();
+  completion.classList.remove('show');
+  setStep('数组已重置，点击「排序」开始演示');
+  updateButtons();
+  draw();
+}
+
+// ============================================================
+// 取消排序
+// ============================================================
+function cancelSort() {
+  if (!sorting) return;
+  canceled = true;
+  paused = false;
+  if (pauseResolve) {
+    pauseResolve();
+    pauseResolve = null;
+  }
+  sorting = false;
+  done = false;
+  // 重置所有未排序状态
+  for (let i = 0; i < arr.length; i++) {
+    if (states[i] !== State.SORTED) states[i] = State.DEFAULT;
+  }
+  updateButtons();
+  setStep('已取消');
+  draw();
+}
+
+// ============================================================
+// 事件绑定
+// ============================================================
+btnGenerate.addEventListener('click', () => {
+  if (sorting) cancelSort();
+  // 等待取消生效
+  setTimeout(() => {
+    generateArray(parseInt(sizeSlider.value));
+    updateButtons();
+  }, 20);
+});
+
+btnSort.addEventListener('click', startSort);
+
+btnReset.addEventListener('click', resetArray);
+
+sizeSlider.addEventListener('input', () => {
+  sizeVal.textContent = sizeSlider.value;
+  if (!sorting && !done) {
+    generateArray(parseInt(sizeSlider.value));
+  }
+});
+
+speedSlider.addEventListener('input', () => {
+  speedVal.textContent = speedSlider.value;
+});
+
+// ============================================================
+// 初始化
+// ============================================================
+generateArray(parseInt(sizeSlider.value));
+resizeCanvas();
+updateButtons();
+
+// 延迟一帧确保尺寸正确
+requestAnimationFrame(() => resizeCanvas());
+</script>
+</body>
+</html>

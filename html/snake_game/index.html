@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>贪吃蛇大冒险 - Snake Adventure</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- 开始界面 -->
+    <div id="start-screen" class="screen">
+        <h1 class="game-title">🐍 贪吃蛇大冒险</h1>
+        <h2 class="game-subtitle">Snake Adventure</h2>
+        
+        <div class="form-group">
+            <label for="player-name">玩家昵称</label>
+            <input type="text" id="player-name" placeholder="输入你的昵称" maxlength="10" autocomplete="off">
+        </div>
+        
+        <button id="start-btn" class="primary-btn">开始游戏</button>
+        
+        <button id="show-rank-btn" class="secondary-btn">🏆 排行榜</button>
+        
+        <div class="instructions">
+            <h3>操作说明</h3>
+            <p>⬆️⬇️⬅️➡️ 或 W/A/S/D 控制方向</p>
+            <p>空格键 暂停/继续</p>
+            <h3>玩法说明</h3>
+            <p>🎯 游戏固定从第 1 关开始，按顺序挑战到第 10 关</p>
+            <p>🔴 红色：普通食物，+10 分，蛇身增长</p>
+            <p>🔵 青色：缩短食物，+20 分，蛇身缩短 2 格</p>
+            <p>🟢 绿色：时间食物，+20 分，额外 +10 秒</p>
+            <p>🟠 金色：金币食物，+30 分</p>
+            <p>❤️ 初始生命 2 条，死亡-1，生命为 0 时游戏结束</p>
+            <p>🔁 生命未耗尽时，死亡会在当前关卡重新开始</p>
+            <p>💖 每累计获得 1000 分，额外 +1 条生命</p>
+            <p>🟣 紫色传送门：当前关卡达到最低分后出现（第 10 关无传送门）</p>
+            <p>📌 各关最低分：1关40、2关50、3关60、4关70、5关80、6关90、7关100、8关110、9关120、10关130</p>
+        </div>
+    </div>
+
+    <!-- 排行榜界面 -->
+    <div id="rank-screen" class="screen hidden">
+        <h2>🏆 排行榜 Top 10</h2>
+        <table id="rank-table">
+            <thead>
+                <tr>
+                    <th>排名</th>
+                    <th>昵称</th>
+                    <th>分数</th>
+                    <th>最佳关卡</th>
+                    <th>日期</th>
+                </tr>
+            </thead>
+            <tbody id="rank-body">
+            </tbody>
+        </table>
+        <button id="back-btn" class="primary-btn">返回</button>
+    </div>
+
+    <!-- 游戏界面 -->
+    <div id="game-container" class="hidden">
+        <div id="hud">
+            <div class="hud-item">
+                <span class="label">分数</span>
+                <span id="score" class="value">0</span>
+            </div>
+            <div class="hud-item">
+                <span class="label">关卡</span>
+                <span id="level" class="value">1</span>
+            </div>
+            <div class="hud-item">
+                <span class="label">时间</span>
+                <span id="time" class="value">60</span>
+            </div>
+            <div class="hud-item">
+                <span class="label">生命</span>
+                <span id="lives" class="value">2</span>
+            </div>
+            <div class="hud-item">
+                <span class="label">最高分</span>
+                <span id="high-score" class="value">0</span>
+            </div>
+        </div>
+        
+        <div id="time-bar-container">
+            <div id="time-bar"></div>
+        </div>
+        
+        <canvas id="game-canvas"></canvas>
+        
+        <div id="pause-overlay" class="hidden">
+            <h2>游戏暂停</h2>
+            <p>按空格键继续</p>
+        </div>
+    </div>
+
+    <!-- 游戏结束界面 -->
+    <div id="game-over-screen" class="screen hidden">
+        <h2 id="game-over-title">游戏结束</h2>
+        <div class="game-result">
+            <p>最终分数：<span id="final-score">0</span></p>
+            <p>到达关卡：<span id="final-level">1</span></p>
+            <p>最高分：<span id="final-high-score">0</span></p>
+        </div>
+        <button id="restart-btn" class="primary-btn">重新开始</button>
+        <button id="home-btn" class="secondary-btn">返回主页</button>
+    </div>
+
+    <!-- 通关界面 -->
+    <div id="level-complete-screen" class="screen hidden">
+        <h2>🎉 关卡完成!</h2>
+        <div class="game-result">
+            <p>当前分数：<span id="level-score">0</span></p>
+            <p>进入第 <span id="next-level">2</span> 关</p>
+        </div>
+        <button id="next-level-btn" class="primary-btn">进入下一关</button>
+    </div>
+
+    <!-- 游戏胜利界面 -->
+    <div id="victory-screen" class="screen hidden">
+        <h1>🏆 恭喜通关! 🏆</h1>
+        <h2>你完成了所有 10 关挑战!</h2>
+        <div class="game-result">
+            <p>最终分数：<span id="victory-score">0</span></p>
+            <p>玩家：<span id="victory-player">Player</span></p>
+        </div>
+        <button id="victory-restart-btn" class="primary-btn">再次挑战</button>
+        <button id="victory-home-btn" class="secondary-btn">返回主页</button>
+    </div>
+
+    <!-- 音效开关 -->
+    <div id="sound-toggle">
+        <button id="sound-btn" class="sound-btn">🔊</button>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/snake.js"></script>
+    <script src="js/food.js"></script>
+    <script src="js/enemy.js"></script>
+    <script src="js/level.js"></script>
+    <script src="js/scoreboard.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
