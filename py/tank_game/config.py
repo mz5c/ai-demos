@@ -1,0 +1,62 @@
+import pygame
+
+# Screen
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
+FPS = 60
+
+# Colors
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+GREEN = (0, 255, 0)
+RED = (255, 0, 0)
+BLUE = (0, 0, 255)
+YELLOW = (255, 255, 0)
+GRAY = (128, 128, 128)
+BROWN = (139, 69, 19)
+DARK_GREEN = (0, 128, 0)
+ORANGE = (255, 165, 0)
+
+# Tank
+TANK_SIZE = 40
+PLAYER_SPEED = 4
+ENEMY_SPEED = 2
+PLAYER_HP = 3
+ENEMY_HP = 1
+PLAYER_COLOR = GREEN
+ENEMY_COLOR = RED
+PLAYER_BULLET_SPEED = 10
+ENEMY_BULLET_SPEED = 7
+PLAYER_SHOOT_COOLDOWN = 15
+ENEMY_SHOOT_COOLDOWN = 45
+
+# Bullet
+BULLET_SIZE = 6
+
+# Wall
+WALL_SIZE = 20
+BRICK_COLOR = BROWN
+
+# Base
+BASE_SIZE = 40
+BASE_COLOR = YELLOW
+BASE_X = SCREEN_WIDTH // 2 - BASE_SIZE // 2
+BASE_Y = SCREEN_HEIGHT - 120
+
+# Spawn
+SPAWN_POINTS = [
+    (SCREEN_WIDTH // 4 - TANK_SIZE // 2, 30),
+    (SCREEN_WIDTH // 2 - TANK_SIZE // 2, 30),
+    (3 * SCREEN_WIDTH // 4 - TANK_SIZE // 2, 30),
+]
+
+# Wave
+BASE_ENEMY_COUNT = 10
+MAX_ACTIVE_ENEMIES = 4
+SPAWN_INTERVAL = 150  # frames (2.5s at 60fps)
+
+# Fonts
+pygame.font.init()
+FONT_SMALL = pygame.font.SysFont("Arial", 24)
+FONT_LARGE = pygame.font.SysFont("Arial", 48)
+FONT_TITLE = pygame.font.SysFont("Arial", 64)
