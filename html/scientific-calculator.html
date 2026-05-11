@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>科学计算器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  min-height:100dvh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:radial-gradient(ellipse at 50% 0%,oklch(0.18 0.04 270),oklch(0.08 0.02 270));
+  font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  padding:12px;
+}
+.calculator{
+  width:min(420px,100%);
+  background:linear-gradient(135deg,oklch(0.16 0.03 260/0.9),oklch(0.12 0.02 280/0.95));
+  border-radius:24px;
+  padding:20px;
+  box-shadow:
+    0 30px 80px oklch(0 0 0/0.6),
+    0 0 0 1px oklch(1 0 0/0.06),
+    inset 0 1px 0 oklch(1 0 0/0.08);
+  backdrop-filter:blur(20px);
+}
+.display{
+  background:oklch(0.08 0.01 270);
+  border-radius:16px;
+  padding:18px 22px;
+  margin-bottom:16px;
+  text-align:right;
+  min-height:120px;
+  position:relative;
+  box-shadow:inset 0 2px 8px oklch(0 0 0/0.4);
+  overflow:hidden;
+}
+.display-mode{
+  font-size:11px;
+  letter-spacing:0.5px;
+  color:oklch(0.7 0.15 160);
+  cursor:pointer;
+  text-align:left;
+  display:inline-block;
+  padding:2px 8px;
+  border-radius:4px;
+  background:oklch(0.7 0.15 160/0.1);
+  transition:.2s;
+}
+.display-mode:hover{background:oklch(0.7 0.15 160/0.2)}
+.display-expr{
+  font-size:15px;
+  color:oklch(0.6 0.03 260);
+  min-height:22px;
+  overflow-x:auto;
+  white-space:nowrap;
+  padding-top:8px;
+  scrollbar-width:none;
+  font-family:'SF Mono','Cascadia Code','Consolas',monospace;
+  direction:ltr;
+  text-align:right;
+}
+.display-expr::-webkit-scrollbar{display:none}
+.display-result{
+  font-size:clamp(28px,7vw,44px);
+  color:oklch(0.95 0.01 270);
+  font-weight:250;
+  font-variant-numeric:tabular-nums;
+  letter-spacing:-0.5px;
+  min-height:1.2em;
+  word-break:break-all;
+  transition:color .2s;
+  font-family:'SF Mono','Cascadia Code','Consolas',monospace;
+}
+.display-result.error{color:oklch(0.7 0.2 30)}
+.display-memory{
+  position:absolute;
+  top:10px;right:16px;
+  font-size:10px;
+  color:oklch(0.5 0.02 260);
+  letter-spacing:0.5px;
+}
+.buttons{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:7px;
+}
+button{
+  border:none;
+  border-radius:12px;
+  font-size:clamp(15px,3.5vw,19px);
+  cursor:pointer;
+  transition:all .12s ease;
+  font-family:inherit;
+  font-weight:450;
+  aspect-ratio:1.3;
+  position:relative;
+  overflow:hidden;
+  -webkit-tap-highlight-color:transparent;
+  outline-offset:2px;
+}
+button:active{transform:scale(0.92)}
+button::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  opacity:0;
+  transition:opacity .2s;
+  background:radial-gradient(circle at var(--mx,50%) var(--my,50%),oklch(1 0 0/0.15),transparent 60%);
+}
+button:focus-visible{
+  outline:2px solid oklch(0.7 0.15 160);
+}
+/* Ripple */
+.ripple{
+  position:absolute;
+  border-radius:50%;
+  background:oklch(1 0 0/0.2);
+  transform:scale(0);
+  animation:ripple .5s ease-out forwards;
+  pointer-events:none;
+}
+@keyframes ripple{to{transform:scale(4);opacity:0}}
+/* Gap areas */
+.btn-span{grid-column:span 1}
+
+/* Numeric buttons */
+.btn-num{
+  background:oklch(0.22 0.02 270);
+  color:oklch(0.92 0.01 270);
+}
+.btn-num:hover{background:oklch(0.28 0.02 270)}
+.btn-num:active{background:oklch(0.32 0.02 270)}
+
+/* Operator buttons */
+.btn-op{
+  background:oklch(0.4 0.12 75);
+  color:oklch(0.98 0.01 80);
+}
+.btn-op:hover{background:oklch(0.48 0.12 75)}
+.btn-op:active{background:oklch(0.52 0.12 75)}
+
+/* Scientific function buttons */
+.btn-fn{
+  background:oklch(0.2 0.04 240);
+  color:oklch(0.75 0.08 220);
+  font-size:clamp(12px,2.8vw,15px);
+}
+.btn-fn:hover{background:oklch(0.26 0.04 240)}
+.btn-fn:active{background:oklch(0.3 0.04 240)}
+
+/* Utility buttons (C, ⌫, parens) */
+.btn-util{
+  background:oklch(0.28 0.06 30);
+  color:oklch(0.85 0.08 30);
+}
+.btn-util:hover{background:oklch(0.34 0.06 30)}
+.btn-util:active{background:oklch(0.38 0.06 30)}
+
+/* Equals button */
+.btn-eq{
+  background:oklch(0.45 0.14 160);
+  color:oklch(0.98 0.01 160);
+  font-weight:550;
+}
+.btn-eq:hover{background:oklch(0.52 0.14 160)}
+.btn-eq:active{background:oklch(0.56 0.14 160)}
+
+/* Constant buttons (π, e) */
+.btn-const{
+  background:oklch(0.2 0.03 280);
+  color:oklch(0.75 0.06 280);
+  font-size:clamp(14px,3vw,17px);
+}
+.btn-const:hover{background:oklch(0.25 0.03 280)}
+
+@media(max-width:400px){
+  .calculator{padding:14px;border-radius:20px}
+  .display{padding:14px 16px;min-height:100px}
+  .buttons{gap:5px}
+  button{border-radius:10px}
+}
+@media(max-width:350px){
+  .calculator{padding:10px}
+  .buttons{gap:4px}
+  button{border-radius:8px}
+  .display-result{font-size:24px}
+}
+</style>
+</head>
+<body>
+<div class="calculator">
+  <div class="display">
+    <div class="display-mode" id="modeToggle" title="点击切换 DEG/RAD">DEG</div>
+    <div class="display-expr" id="exprDisplay"></div>
+    <div class="display-result" id="resultDisplay">0</div>
+  </div>
+  <div class="buttons" id="buttonGrid">
+    <button class="btn-fn" data-action="paren" data-value="(">(</button>
+    <button class="btn-fn" data-action="paren" data-value=")">)</button>
+    <button class="btn-util" data-action="clear">AC</button>
+    <button class="btn-util" data-action="backspace">⌫</button>
+    <button class="btn-op" data-action="op" data-value="÷">÷</button>
+
+    <button class="btn-num" data-action="num" data-value="7">7</button>
+    <button class="btn-num" data-action="num" data-value="8">8</button>
+    <button class="btn-num" data-action="num" data-value="9">9</button>
+    <button class="btn-op" data-action="op" data-value="×">×</button>
+    <button class="btn-fn" data-action="fn" data-value="sin">sin</button>
+
+    <button class="btn-num" data-action="num" data-value="4">4</button>
+    <button class="btn-num" data-action="num" data-value="5">5</button>
+    <button class="btn-num" data-action="num" data-value="6">6</button>
+    <button class="btn-op" data-action="op" data-value="-">−</button>
+    <button class="btn-fn" data-action="fn" data-value="cos">cos</button>
+
+    <button class="btn-num" data-action="num" data-value="1">1</button>
+    <button class="btn-num" data-action="num" data-value="2">2</button>
+    <button class="btn-num" data-action="num" data-value="3">3</button>
+    <button class="btn-op" data-action="op" data-value="+">+</button>
+    <button class="btn-fn" data-action="fn" data-value="tan">tan</button>
+
+    <button class="btn-num" data-action="num" data-value="0">0</button>
+    <button class="btn-num" data-action="dot">.</button>
+    <button class="btn-num" data-action="sign">±</button>
+    <button class="btn-eq" data-action="eval">=</button>
+    <button class="btn-fn" data-action="fn" data-value="log">log</button>
+
+    <button class="btn-const" data-action="const" data-value="π">π</button>
+    <button class="btn-const" data-action="const" data-value="e">e</button>
+    <button class="btn-fn" data-action="fn" data-value="√">√</button>
+    <button class="btn-fn" data-action="postfix" data-value="²">x²</button>
+    <button class="btn-fn" data-action="fn" data-value="ln">ln</button>
+
+    <button class="btn-fn" data-action="postfix" data-value="³">x³</button>
+    <button class="btn-fn" data-action="immediate" data-value="pow10">10ˣ</button>
+    <button class="btn-fn" data-action="postfix" data-value="!">n!</button>
+    <button class="btn-fn" data-action="immediate" data-value="inv">1/x</button>
+    <button class="btn-fn" data-action="immediate" data-value="abs">|x|</button>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+
+  // ---- State ----
+  const state = {
+    expression: '',
+    result: null,       // null = no result evaluated yet
+    hasResult: false,    // true after pressing =
+    mode: 'DEG',         // 'DEG' | 'RAD'
+    error: false,
+    memory: null,
+  };
+
+  // ---- DOM refs ----
+  const exprEl = document.getElementById('exprDisplay');
+  const resultEl = document.getElementById('resultDisplay');
+  const modeBtn = document.getElementById('modeToggle');
+
+  // ---- Trig helpers (updated on mode change) ----
+  window._sin = Math.sin;
+  window._cos = Math.cos;
+  window._tan = Math.tan;
+  window._log = Math.log10;   // log base 10
+  window._ln  = Math.log;     // natural log
+  window._sqrt = Math.sqrt;
+  window._pi = Math.PI;
+  window._e  = Math.E;
+  window._abs = Math.abs;
+
+  window._sq = function(x) { return x * x; };
+  window._cube = function(x) { return x * x * x; };
+  window._fact = function(n) {
+    if (n < 0 || !Number.isInteger(n)) return NaN;
+    if (n <= 1) return 1;
+    var r = 1;
+    for (var i = 2; i <= n; i++) r *= i;
+    return r;
+  };
+
+  // ---- Mode ----
+  function updateTrigMode() {
+    if (state.mode === 'DEG') {
+      var d = Math.PI / 180;
+      window._sin = function(x) { return Math.sin(x * d); };
+      window._cos = function(x) { return Math.cos(x * d); };
+      window._tan = function(x) { return Math.tan(x * d); };
+    } else {
+      window._sin = Math.sin;
+      window._cos = Math.cos;
+      window._tan = Math.tan;
+    }
+  }
+
+  function toggleMode() {
+    state.mode = state.mode === 'DEG' ? 'RAD' : 'DEG';
+    updateTrigMode();
+    modeBtn.textContent = state.mode;
+  }
+
+  // ---- Formatting ----
+  function fmtNumber(n) {
+    if (typeof n !== 'number' || isNaN(n)) return 'Error';
+    if (!isFinite(n)) return n > 0 ? '∞' : '-∞';
+    // Floating-point fudge: round near-integers
+    if (Math.abs(n - Math.round(n)) < 1e-12) n = Math.round(n);
+    // Large or small → scientific
+    if (Math.abs(n) > 1e15 || (Math.abs(n) < 1e-10 && n !== 0)) {
+      return n.toExponential(6);
+    }
+    // Decimal limits
+    var s = n.toFixed(12).replace(/\.?0+$/, '');
+    return s;
+  }
+
+  function fmtShort(n) {
+    var s = fmtNumber(n);
+    return s.length > 16 ? n.toExponential(4) : s;
+  }
+
+  function updateDisplay() {
+    exprEl.textContent = state.expression || '';
+    if (state.error) {
+      resultEl.textContent = 'Error';
+      resultEl.className = 'display-result error';
+    } else if (state.result !== null) {
+      resultEl.textContent = fmtNumber(state.result);
+      resultEl.className = 'display-result';
+    } else {
+      resultEl.textContent = state.expression || '0';
+      resultEl.className = 'display-result';
+    }
+    // Update clear button label
+    var cb = document.querySelector('[data-action="clear"]');
+    if (cb) cb.textContent = state.expression ? 'C' : 'AC';
+    // Scroll expression to end
+    exprEl.scrollLeft = exprEl.scrollWidth;
+  }
+
+  // ---- Evaluation ----
+  function evaluate(expr) {
+    if (!expr.trim()) return NaN;
+
+    // Auto-close parentheses
+    var open = (expr.match(/\(/g) || []).length;
+    var close = (expr.match(/\)/g) || []).length;
+    while (open > close) { expr += ')'; close++; }
+
+    var e = expr;
+
+    // Replace functions (longer first)
+    e = e.replace(/sin\(/g, '_sin(');
+    e = e.replace(/cos\(/g, '_cos(');
+    e = e.replace(/tan\(/g, '_tan(');
+    e = e.replace(/log\(/g, '_log(');
+    e = e.replace(/ln\(/g, '_ln(');
+    e = e.replace(/√\(/g, '_sqrt(');
+
+    // Replace constants
+    e = e.replace(/π/g, '_pi');
+    // Standalone e → Euler's number (not part of word or after digit for scientific notation)
+    e = e.replace(/(?<![a-zA-Z\d.])e(?![a-zA-Z])/g, '_e');
+    // Also handle e followed by ( which means constant
+    e = e.replace(/e\(/g, '_e(');
+
+    // Postfix operators (applied to numbers only)
+    e = e.replace(/([\d.]+)!/g, '_fact($1)');
+    e = e.replace(/([\d.]+)²/g, '_sq($1)');
+    e = e.replace(/([\d.]+)³/g, '_cube($1)');
+
+    // Operators
+    e = e.replace(/×/g, '*');
+    e = e.replace(/−/g, '-');
+    e = e.replace(/÷/g, '/');
+    e = e.replace(/\^/g, '**');
+
+    // Handle pipe (absolute value)
+    // Find pairs of |...| and replace with _abs(...)
+    var pipes = 0;
+    var result = '';
+    for (var i = 0; i < e.length; i++) {
+      if (e[i] === '|') {
+        if (pipes % 2 === 0) {
+          result += '_abs(';
+        } else {
+          result += ')';
+        }
+        pipes++;
+      } else {
+        result += e[i];
+      }
+    }
+    e = result;
+
+    try {
+      var fn = new Function('return (' + e + ')');
+      var val = fn();
+      return val;
+    } catch (err) {
+      return NaN;
+    }
+  }
+
+  function doEval() {
+    if (!state.expression) return;
+    var val = evaluate(state.expression);
+    if (isNaN(val) || !isFinite(val)) {
+      state.error = true;
+      state.result = null;
+    } else {
+      state.error = false;
+      state.result = val;
+    }
+    state.hasResult = true;
+    updateDisplay();
+  }
+
+  // ---- Get current display value (for immediate ops) ----
+  function getCurrentValue() {
+    if (state.result !== null && !state.error) return state.result;
+    if (state.expression) {
+      var v = evaluate(state.expression);
+      if (!isNaN(v) && isFinite(v)) return v;
+    }
+    return null;
+  }
+
+  // ---- Actions ----
+  function pressNumber(ch) {
+    if (state.hasResult && !state.error) {
+      // Start fresh
+      state.expression = '';
+      state.result = null;
+      state.hasResult = false;
+      state.error = false;
+    } else if (state.error) {
+      state.expression = '';
+      state.error = false;
+      state.result = null;
+    }
+    state.expression += ch;
+    updateDisplay();
+  }
+
+  function pressDot() {
+    if (state.error) return;
+    // Don't add another dot if last number already has one
+    var parts = state.expression.split(/[+\-×÷^/(]/);
+    var last = parts[parts.length - 1];
+    if (last.includes('.')) return;
+    if (state.hasResult) {
+      state.expression = '';
+      state.result = null;
+      state.hasResult = false;
+    }
+    state.expression += state.expression === '' ? '0.' : '.';
+    updateDisplay();
+  }
+
+  function pressOperator(op) {
+    if (state.error) { state.error = false; state.expression = ''; }
+    if (state.hasResult && state.result !== null) {
+      state.expression = fmtShort(state.result) + op;
+      state.result = null;
+      state.hasResult = false;
+    } else {
+      // Replace trailing operator
+      var last = state.expression.slice(-1);
+      if ('+−×÷^'.indexOf(last) >= 0) {
+        state.expression = state.expression.slice(0, -1) + op;
+      } else {
+        state.expression += op;
+      }
+    }
+    updateDisplay();
+  }
+
+  function pressFunction(name) {
+    if (state.error) { state.error = false; state.expression = ''; }
+    if (state.hasResult) {
+      state.expression = fmtShort(state.result);
+      state.result = null;
+      state.hasResult = false;
+    }
+    state.expression += name + '(';
+    updateDisplay();
+  }
+
+  function pressConstant(name) {
+    if (state.error) { state.error = false; state.expression = ''; }
+    if (state.hasResult) {
+      state.expression = '';
+      state.result = null;
+      state.hasResult = false;
+    }
+    state.expression += name;
+    updateDisplay();
+  }
+
+  function pressParen(ch) {
+    if (state.error) { state.error = false; state.expression = ''; }
+    if (ch === '(') {
+      if (state.hasResult) {
+        state.expression = fmtShort(state.result) + '(';
+        state.result = null;
+        state.hasResult = false;
+      } else {
+        // Auto-multiply if expression ends with number or )
+        var last = state.expression.slice(-1);
+        if (last && /\d|\)/.test(last)) state.expression += '×';
+        state.expression += '(';
+      }
+    } else {
+      // Count open vs close
+      var o = (state.expression.match(/\(/g) || []).length;
+      var c = (state.expression.match(/\)/g) || []).length;
+      if (c < o) state.expression += ')';
+    }
+    updateDisplay();
+  }
+
+  function pressPostfix(sym) {
+    if (state.error) return;
+    if (state.expression.slice(-1) === ')') return;
+    if (state.hasResult && state.result !== null) {
+      // Apply to result directly
+      var v = state.result;
+      var newVal;
+      if (sym === '²') newVal = v * v;
+      else if (sym === '³') newVal = v * v * v;
+      else if (sym === '!') newVal = window._fact(v);
+      else return;
+      state.result = newVal;
+      state.hasResult = true;
+      state.expression = fmtShort(v) + sym;
+      state.error = !isFinite(newVal) || isNaN(newVal);
+      updateDisplay();
+      return;
+    }
+
+    // Find the last number in expression and append
+    var m = state.expression.match(/([\d.]+)$/);
+    if (m) {
+      var idx = state.expression.lastIndexOf(m[1]);
+      state.expression = state.expression.slice(0, idx) + m[1] + sym;
+    } else {
+      // Apply to 0? do nothing
+      return;
+    }
+    updateDisplay();
+  }
+
+  function pressImmediate(type) {
+    if (state.error) return;
+    var v = state.hasResult ? state.result : getCurrentValue();
+    if (v === null || v === undefined) return;
+
+    var newVal, displayExpr;
+    if (type === 'inv') {
+      if (v === 0) { state.error = true; state.result = null; updateDisplay(); return; }
+      newVal = 1 / v;
+      displayExpr = '1/(' + fmtShort(v) + ')';
+    } else if (type === 'pow10') {
+      newVal = Math.pow(10, v);
+      displayExpr = '10^(' + fmtShort(v) + ')';
+    } else if (type === 'abs') {
+      newVal = Math.abs(v);
+      displayExpr = '|' + fmtShort(v) + '|';
+    } else {
+      return;
+    }
+
+    state.expression = displayExpr;
+    state.result = newVal;
+    state.hasResult = true;
+    state.error = !isFinite(newVal) || isNaN(newVal);
+    updateDisplay();
+  }
+
+  function clearAll() {
+    state.expression = '';
+    state.result = null;
+    state.hasResult = false;
+    state.error = false;
+    updateDisplay();
+  }
+
+  function backspace() {
+    if (state.error) { clearAll(); return; }
+    if (state.hasResult) {
+      clearAll();
+      return;
+    }
+    // Handle function names: if expression ends with '(', remove the whole function name
+    if (state.expression.endsWith('(')) {
+      var idx = state.expression.length - 1;
+      var before = state.expression.slice(0, idx);
+      if (/^(sin|cos|tan|log|ln|√)$/.test(before)) {
+        state.expression = '';
+        updateDisplay();
+        return;
+      }
+    }
+    state.expression = state.expression.slice(0, -1);
+    updateDisplay();
+  }
+
+  function toggleSign() {
+    if (state.error) return;
+    if (state.hasResult && state.result !== null) {
+      state.result = -state.result;
+      updateDisplay();
+      return;
+    }
+    // Toggle sign of the last number in expression
+    var m = state.expression.match(/([\d.]+)$/);
+    if (m) {
+      var idx = state.expression.lastIndexOf(m[1]);
+      var before = state.expression.slice(0, idx);
+      var num = m[1];
+      // Check if there's a - before the number directly
+      if (before.endsWith('-') && (before.length === 1 || '(+−×÷^'.indexOf(before[before.length - 2]) >= 0)) {
+        // Remove the minus
+        state.expression = before.slice(0, -1) + num;
+      } else if (before.endsWith('--')) {
+        state.expression = before.slice(0, -1) + num;
+      } else if (before.endsWith('+') && before.length > 1 && '(+−×÷^'.indexOf(before[before.length - 2]) >= 0) {
+        state.expression = before.slice(0, -1) + '-' + num;
+      } else {
+        state.expression = before + '-' + num;
+      }
+    } else if (state.expression === '') {
+      state.expression = '-';
+    }
+    updateDisplay();
+  }
+
+  // ---- Ripple effect ----
+  function createRipple(e, btn) {
+    var rect = btn.getBoundingClientRect();
+    var size = Math.max(rect.width, rect.height);
+    var x = (e.clientX || e.touches?.[0]?.clientX || rect.left + rect.width / 2) - rect.left - size / 2;
+    var y = (e.clientY || e.touches?.[0]?.clientY || rect.top + rect.height / 2) - rect.top - size / 2;
+    var el = document.createElement('span');
+    el.className = 'ripple';
+    el.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + x + 'px;top:' + y + 'px';
+    btn.appendChild(el);
+    setTimeout(function() { el.remove(); }, 500);
+  }
+
+  // ---- Button click handler ----
+  function handleClick(e) {
+    var btn = e.currentTarget;
+    createRipple(e, btn);
+
+    var action = btn.dataset.action;
+    var value = btn.dataset.value;
+
+    switch (action) {
+      case 'num':    pressNumber(value); break;
+      case 'dot':    pressDot(); break;
+      case 'op':     pressOperator(value); break;
+      case 'fn':     pressFunction(value); break;
+      case 'const':  pressConstant(value); break;
+      case 'paren':  pressParen(value); break;
+      case 'postfix':pressPostfix(value); break;
+      case 'immediate':pressImmediate(value); break;
+      case 'clear':  clearAll(); break;
+      case 'backspace':backspace(); break;
+      case 'sign':   toggleSign(); break;
+      case 'eval':   doEval(); break;
+    }
+  }
+
+  // ---- Keyboard support ----
+  var keyMap = {
+    '0': 'num','1':'num','2':'num','3':'num','4':'num',
+    '5': 'num','6':'num','7':'num','8':'num','9':'num',
+    '.': 'dot','Enter':'eval','=':'eval',
+    'Backspace':'backspace','Escape':'clear','Delete':'clear',
+  };
+  var opMap = { '+':'+', '-':'−', '*':'×', '/':'÷', '^':'^' };
+  var fnMap = { 's':'sin', 'c':'cos', 't':'tan', 'l':'log', 'n':'ln' };
+
+  document.addEventListener('keydown', function(e) {
+    var key = e.key;
+    var btn;
+
+    if (key in keyMap) {
+      e.preventDefault();
+      var action = keyMap[key];
+      btn = document.querySelector('[data-action="' + action + '"][data-value="' + key + '"]')
+         || document.querySelector('[data-action="' + action + '"]');
+      if (btn) { btn.click(); return; }
+      // Handle num
+      if (action === 'num') {
+        btn = document.querySelector('[data-action="num"][data-value="' + key + '"]');
+        if (btn) btn.click();
+      }
+      if (action === 'eval') { doEval(); }
+      if (action === 'clear') { clearAll(); }
+      if (action === 'backspace') { backspace(); }
+      if (action === 'dot') { pressDot(); }
+      return;
+    }
+
+    if (key in opMap) {
+      e.preventDefault();
+      pressOperator(opMap[key]);
+      return;
+    }
+
+    if (key === '(' || key === ')') {
+      e.preventDefault();
+      pressParen(key);
+      return;
+    }
+
+    // Keyboard shortcut: s=sin, c=cos, t=tan
+    if (key.toLowerCase() in fnMap) {
+      // Only trigger if not in input/editing context? Always ok for this app
+      e.preventDefault();
+      pressFunction(fnMap[key.toLowerCase()]);
+      return;
+    }
+
+    // Mode toggle: m key or F1
+    if (key === 'm' || key === 'M' || key === 'F1') {
+      e.preventDefault();
+      toggleMode();
+      return;
+    }
+  });
+
+  // ---- Init ----
+  updateTrigMode();
+
+  // Bind button clicks
+  var buttons = document.querySelectorAll('#buttonGrid button');
+  for (var i = 0; i < buttons.length; i++) {
+    buttons[i].addEventListener('click', handleClick);
+    // Touch feedback
+    buttons[i].addEventListener('touchstart', function(e) {
+      // Just trigger early visual feedback
+    }, { passive: true });
+  }
+
+  // Mode toggle button
+  modeBtn.addEventListener('click', toggleMode);
+
+  // ---- Expose for debugging ----
+  window.__calcState = state;
+
+})();
+</script>
+</body>
+</html>
