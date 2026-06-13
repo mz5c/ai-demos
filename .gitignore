@@ -20,5 +20,6 @@ target/
 *.log
 
 .claude
+.superpowers
 
 __pycache__

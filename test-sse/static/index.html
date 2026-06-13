@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>流式阅读 · 守其体者终复明</title>
+<style>
+  :root {
+    --bg-page: #f8f6f3;
+    --bg-card: #ffffff;
+    --bg-control: #f0ece4;
+    --text-primary: #2c1810;
+    --text-secondary: #8b7355;
+    --text-body: #4a3728;
+    --accent: #8b7355;
+    --accent-hover: #6b5a42;
+    --border: #e8e0d4;
+    --progress-bg: #d4c5b0;
+    --error: #b54a3a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: Georgia, "Songti SC", "SimSun", serif;
+    background: var(--bg-page);
+    color: var(--text-body);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 40px 20px 60px;
+  }
+
+  .container {
+    max-width: 720px;
+    width: 100%;
+  }
+
+  /* ── Header ── */
+  .header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .header .badge {
+    font-family: -apple-system, "PingFang SC", sans-serif;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 2px;
+    line-height: 1.4;
+  }
+  .header .subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    font-style: italic;
+  }
+  .header .divider {
+    width: 60px;
+    height: 2px;
+    background: var(--border);
+    margin: 16px auto 0;
+    border-radius: 1px;
+  }
+
+  /* ── Speed Control ── */
+  .speed-control {
+    background: var(--bg-control);
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: opacity 0.3s;
+  }
+  .speed-control.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  .speed-control label {
+    font-family: -apple-system, "PingFang SC", sans-serif;
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .speed-control input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 4px;
+    background: var(--progress-bg);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  .speed-control input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 3px solid var(--bg-control);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .speed-control input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+  }
+  .speed-control input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 3px solid var(--bg-control);
+    cursor: pointer;
+  }
+  .speed-labels {
+    display: flex;
+    gap: 8px;
+    font-family: -apple-system, "PingFang SC", sans-serif;
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .speed-labels span.active {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* ── Button ── */
+  .btn-wrapper {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .btn-read {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 30px;
+    padding: 13px 42px;
+    font-size: 16px;
+    font-family: Georgia, "Songti SC", serif;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: background 0.25s, transform 0.15s, opacity 0.25s;
+    user-select: none;
+  }
+  .btn-read:hover:not(:disabled) {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+  }
+  .btn-read:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  .btn-read:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+  .btn-read .flourish {
+    font-size: 18px;
+    line-height: 1;
+    opacity: 0.7;
+  }
+  .btn-read .spinner {
+    display: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .btn-read.loading .spinner { display: inline-block; }
+  .btn-read.loading .btn-text { display: none; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Content Area ── */
+  .content-card {
+    background: var(--bg-card);
+    border-radius: 10px;
+    padding: 32px 36px;
+    min-height: 320px;
+    border: 1px solid var(--border);
+    box-shadow: 0 2px 12px rgba(44,24,16,0.06);
+    transition: opacity 0.3s;
+  }
+  .content-card.empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .content-card .placeholder-text {
+    color: var(--progress-bg);
+    font-size: 15px;
+    font-style: italic;
+    letter-spacing: 1px;
+  }
+  .content-body {
+    font-size: 16px;
+    line-height: 2.0;
+    color: var(--text-body);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .content-body .cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1.1em;
+    background: var(--accent);
+    margin-left: 1px;
+    vertical-align: text-bottom;
+    animation: blink 0.9s step-end infinite;
+  }
+  .content-body .cursor.done {
+    animation: none;
+    opacity: 0;
+  }
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+
+  /* ── Progress ── */
+  .progress-area {
+    margin-top: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: -apple-system, "PingFang SC", sans-serif;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .progress-bar-track {
+    flex: 1;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 16px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+
+  /* ── Error ── */
+  .error-msg {
+    display: none;
+    text-align: center;
+    padding: 12px;
+    margin-top: 16px;
+    background: #fef2f0;
+    border: 1px solid #f5d0c8;
+    border-radius: 8px;
+    color: var(--error);
+    font-size: 13px;
+    font-family: -apple-system, "PingFang SC", sans-serif;
+  }
+  .error-msg.visible { display: block; }
+
+  /* ── Responsive ── */
+  @media (max-width: 540px) {
+    body { padding: 24px 12px 40px; }
+    .content-card { padding: 20px 18px; }
+    .content-body { font-size: 15px; line-height: 1.9; }
+    .speed-control { padding: 12px 16px; gap: 10px; flex-wrap: wrap; }
+    .btn-read { padding: 11px 28px; font-size: 15px; }
+    .header h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <header class="header">
+    <div class="badge">SSE · 流式阅读</div>
+    <h1>守其体者终复明</h1>
+    <p class="subtitle">全国 II 卷高考作文</p>
+    <div class="divider"></div>
+  </header>
+
+  <!-- Speed Control -->
+  <div class="speed-control" id="speedControl">
+    <label for="speedSlider">输出速度</label>
+    <input type="range" id="speedSlider" min="1" max="100" value="70">
+    <div class="speed-labels">
+      <span>慢</span>
+      <span id="speedLabel" class="active">中</span>
+      <span>快</span>
+    </div>
+  </div>
+
+  <!-- Button -->
+  <div class="btn-wrapper">
+    <button class="btn-read" id="btnRead" type="button">
+      <span class="flourish">☙</span>
+      <span class="btn-text">开始阅读</span>
+      <span class="spinner"></span>
+      <span class="flourish">❧</span>
+    </button>
+  </div>
+
+  <!-- Content -->
+  <div class="content-card empty" id="contentCard">
+    <div class="content-body" id="contentBody">
+      <span class="placeholder-text">点击上方按钮，开始流式阅读...</span>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-area">
+    <span id="progressText">已输出 0 字</span>
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="progressFill"></div>
+    </div>
+    <span id="progressPercent">0%</span>
+  </div>
+
+  <!-- Error -->
+  <div class="error-msg" id="errorMsg"></div>
+</div>
+
+<script>
+(function () {
+  // ── DOM refs ──
+  const btnRead    = document.getElementById('btnRead');
+  const contentBody = document.getElementById('contentBody');
+  const contentCard = document.getElementById('contentCard');
+  const speedSlider = document.getElementById('speedSlider');
+  const speedLabel  = document.getElementById('speedLabel');
+  const progressText = document.getElementById('progressText');
+  const progressFill = document.getElementById('progressFill');
+  const progressPercent = document.getElementById('progressPercent');
+  const errorMsg    = document.getElementById('errorMsg');
+
+  // ── State ──
+  let es = null;               // EventSource connection
+  let buffer = [];             // Char buffer from SSE
+  let displayTimer = null;     // Timer for rendering at chosen speed
+  let displayedCount = 0;      // Chars rendered so far
+  let totalChars = 0;          // Total chars in essay
+  let isReading = false;
+  let isDone = false;
+  let speedMs = getSpeedFromValue(70);
+
+  // ── Speed mapping ──
+  // slider 1-100 → interval 30-200ms
+  function getSpeedFromValue(val) {
+    const v = parseInt(val, 10) || 70;
+    // Exponential-ish curve: 200ms at 0, ~30ms at 100
+    return Math.round(200 - (v / 100) * 170);
+  }
+
+  function getSpeedLabel(val) {
+    const v = parseInt(val, 10) || 70;
+    if (v < 35) return '慢';
+    if (v < 65) return '中';
+    return '快';
+  }
+
+  function updateSpeedLabel() {
+    const val = speedSlider.value;
+    speedLabel.textContent = getSpeedLabel(val);
+    speedMs = getSpeedFromValue(val);
+
+    // Update labels highlight
+    const labels = document.querySelectorAll('.speed-labels span');
+    labels.forEach(l => l.classList.remove('active'));
+    const idx = val < 35 ? 0 : val < 65 ? 1 : 2;
+    labels[idx].classList.add('active');
+
+    // If timer is running, restart with new speed
+    if (displayTimer) {
+      clearInterval(displayTimer);
+      displayTimer = null;
+      startDisplayTimer();
+    }
+  }
+
+  speedSlider.addEventListener('input', updateSpeedLabel);
+
+  // ── Rendering ──
+  function appendChar(ch) {
+    if (ch === '\n') {
+      contentBody.appendChild(document.createElement('br'));
+    } else if (ch === '\r') {
+      // skip
+    } else {
+      const span = document.createElement('span');
+      span.textContent = ch;
+      contentBody.appendChild(span);
+    }
+  }
+
+  function startDisplayTimer() {
+    if (displayTimer) return;
+    displayTimer = setInterval(function () {
+      if (buffer.length === 0) return;
+
+      const ch = buffer.shift();
+      appendChar(ch);
+      displayedCount++;
+      updateProgress();
+    }, speedMs);
+  }
+
+  function stopDisplayTimer() {
+    if (displayTimer) {
+      clearInterval(displayTimer);
+      displayTimer = null;
+    }
+  }
+
+  function updateProgress() {
+    progressText.textContent = '已输出 ' + displayedCount + ' 字';
+    if (totalChars > 0) {
+      const pct = Math.min(100, Math.round((displayedCount / totalChars) * 100));
+      progressFill.style.width = pct + '%';
+      progressPercent.textContent = pct + '%';
+    }
+  }
+
+  // ── Cursor ──
+  function ensureCursor() {
+    let cursor = contentBody.querySelector('.cursor');
+    if (!cursor) {
+      cursor = document.createElement('span');
+      cursor.className = 'cursor';
+      contentBody.appendChild(cursor);
+    }
+    return cursor;
+  }
+
+  function removeCursor() {
+    const cursor = contentBody.querySelector('.cursor');
+    if (cursor) cursor.remove();
+  }
+
+  function setCursorDone() {
+    const cursor = contentBody.querySelector('.cursor');
+    if (cursor) cursor.classList.add('done');
+  }
+
+  // ── SSE ──
+  function startStream() {
+    // Clear previous state
+    stopDisplayTimer();
+    if (es) { es.close(); es = null; }
+
+    buffer = [];
+    displayedCount = 0;
+    isReading = true;
+    isDone = false;
+    totalChars = 0;
+
+    contentBody.innerHTML = '';
+    ensureCursor();
+    contentCard.classList.remove('empty');
+    errorMsg.classList.remove('visible');
+    errorMsg.textContent = '';
+
+    btnRead.classList.add('loading');
+    btnRead.disabled = true;
+    speedSlider.disabled = false;
+    document.getElementById('speedControl').classList.remove('disabled');
+
+    const speedParam = speedSlider.value;
+    const sseSpeed = 10; // Server pushes chars at 10ms intervals
+    es = new EventSource('/api/stream?speed=' + sseSpeed);
+
+    es.addEventListener('start', function (e) {
+      const data = JSON.parse(e.data);
+      totalChars = data.total;
+      startDisplayTimer();
+    });
+
+    es.addEventListener('char', function (e) {
+      const data = JSON.parse(e.data);
+      buffer.push(data.char);
+    });
+
+    es.addEventListener('done', function () {
+      isDone = true;
+      es.close();
+      es = null;
+
+      // Wait for buffer to drain, then finalize
+      const checkDone = setInterval(function () {
+        if (buffer.length === 0) {
+          clearInterval(checkDone);
+          stopDisplayTimer();
+          setCursorDone();
+          isReading = false;
+          btnRead.classList.remove('loading');
+          btnRead.disabled = false;
+          btnRead.querySelector('.btn-text').textContent = '重新阅读';
+          updateProgress();
+        }
+      }, 100);
+    });
+
+    es.onerror = function () {
+      // Only show error if we haven't started or got disconnected mid-stream
+      if (!isDone) {
+        es.close();
+        es = null;
+        stopDisplayTimer();
+        isReading = false;
+        btnRead.classList.remove('loading');
+        btnRead.disabled = false;
+        btnRead.querySelector('.btn-text').textContent = '开始阅读';
+        showError('连接中断，请重试');
+      }
+    };
+  }
+
+  function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.classList.add('visible');
+  }
+
+  function resetReader() {
+    stopDisplayTimer();
+    if (es) { es.close(); es = null; }
+    isReading = false;
+    isDone = false;
+    buffer = [];
+    displayedCount = 0;
+
+    btnRead.classList.remove('loading');
+    btnRead.disabled = false;
+    btnRead.querySelector('.btn-text').textContent = '开始阅读';
+
+    contentBody.innerHTML = '<span class="placeholder-text">点击上方按钮，开始流式阅读...</span>';
+    contentCard.classList.add('empty');
+    removeCursor();
+
+    progressText.textContent = '已输出 0 字';
+    progressFill.style.width = '0%';
+    progressPercent.textContent = '0%';
+    errorMsg.classList.remove('visible');
+  }
+
+  // ── Button click ──
+  btnRead.addEventListener('click', function () {
+    if (isReading) return;
+
+    if (isDone) {
+      resetReader();
+      // Small delay then start
+      setTimeout(startStream, 300);
+    } else {
+      startStream();
+    }
+  });
+
+  // ── Keyboard shortcut ──
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.repeat) {
+      const active = document.activeElement;
+      if (active && active.tagName === 'INPUT' && active.type === 'range') return;
+      btnRead.click();
+    }
+  });
+})();
+</script>
+</body>
+</html>
