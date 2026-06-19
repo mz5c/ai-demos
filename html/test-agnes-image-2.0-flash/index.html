@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agnes Image 2.0 Flash - 文生图测试</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface-hover: #22222e;
+      --border: #2a2a3a;
+      --text: #e4e4ed;
+      --text-muted: #8888a0;
+      --accent: #7c6ef0;
+      --accent-glow: rgba(124, 110, 240, 0.25);
+      --danger: #f06e7e;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #7c6ef0, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    /* --- Card --- */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    /* --- Prompt textarea --- */
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 14px 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: inherit;
+      line-height: 1.6;
+      resize: vertical;
+      transition: border-color 0.2s;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* --- Controls row --- */
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-group label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    select, input[type="number"] {
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.9rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    select:focus, input[type="number"]:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    input[type="number"] {
+      width: 80px;
+    }
+
+    /* --- Buttons --- */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 28px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      font-family: inherit;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #6b5ce0;
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: var(--bg);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      color: var(--text);
+      border-color: var(--text-muted);
+    }
+
+    /* --- Loading spinner --- */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* --- Result area --- */
+    .result-area {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .result-area.visible {
+      display: flex;
+    }
+
+    .image-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .image-grid.single {
+      grid-template-columns: 1fr;
+    }
+
+    .image-grid.multi {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .image-wrapper {
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--bg);
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .image-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .image-actions {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      gap: 6px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .image-wrapper:hover .image-actions {
+      opacity: 1;
+    }
+
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(8px);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.2s;
+    }
+
+    .icon-btn:hover {
+      background: rgba(0,0,0,0.8);
+    }
+
+    /* --- Status / error --- */
+    .status {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      display: none;
+    }
+
+    .status.visible { display: block; }
+
+    .status.error {
+      background: rgba(240, 110, 126, 0.1);
+      border: 1px solid rgba(240, 110, 126, 0.25);
+      color: var(--danger);
+    }
+
+    .status.info {
+      background: rgba(124, 110, 240, 0.1);
+      border: 1px solid rgba(124, 110, 240, 0.25);
+      color: #a59bff;
+    }
+
+    /* --- History --- */
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .history-item:last-child { border-bottom: none; }
+
+    .history-thumb {
+      width: 56px;
+      height: 56px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: var(--bg);
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .history-thumb:hover { opacity: 0.8; }
+
+    .history-info {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+    }
+
+    .history-prompt {
+      font-size: 0.85rem;
+      color: var(--text);
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: background 0.15s, color 0.15s;
+      position: relative;
+      line-height: 1.5;
+    }
+
+    /* 未截断时正常单行显示 */
+    .history-prompt:not(.truncated) {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* 截断时允许换行，tooltip中展示完整版 */
+    .history-prompt.truncated {
+      white-space: normal;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .history-prompt:hover {
+      background: var(--bg);
+      color: var(--accent);
+    }
+
+    /* 鼠标跟随的 tooltip */
+    .prompt-tooltip {
+      display: none;
+      position: fixed;
+      z-index: 9999;
+      max-width: 420px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+      pointer-events: none;
+      transition: opacity 0.12s;
+    }
+
+    .prompt-tooltip.visible {
+      display: block;
+      opacity: 1;
+    }
+
+    .history-copy-btn {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .history-copy-btn:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .history-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    /* --- Lightbox --- */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(0,0,0,0.85);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: zoom-out;
+      padding: 40px;
+    }
+
+    .lightbox.open { display: flex; }
+
+    .lightbox img {
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 8px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
+
+    /* --- Responsive --- */
+    @media (max-width: 600px) {
+      .container { padding: 24px 16px; }
+      header h1 { font-size: 1.5rem; }
+      .controls { flex-direction: column; align-items: stretch; }
+      .image-grid.multi { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎨 Agnes Image 2.0 Flash</h1>
+      <p>AI 文生图模型在线测试</p>
+    </header>
+
+    <!-- Prompt Input -->
+    <div class="card">
+      <div class="card-title">提示词</div>
+      <textarea id="prompt" placeholder="描述你想生成的图片，例如：一只坐在阳光下的橘猫，温暖的午后氛围，高清摄影风格"></textarea>
+    </div>
+
+    <!-- Settings -->
+    <div class="card">
+      <div class="card-title">设置</div>
+      <div class="controls">
+        <div class="control-group">
+          <label for="size">尺寸</label>
+          <select id="size">
+            <option value="1024x1024" selected>1024 × 1024 (方形)</option>
+            <option value="1024x768">1024 × 768 (横版)</option>
+            <option value="768x1024">768 × 1024 (竖版)</option>
+            <option value="1024x640">1024 × 640 (宽屏)</option>
+            <option value="640x1024">640 × 1024 (窄屏)</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="count">数量</label>
+          <input type="number" id="count" min="1" max="4" value="1">
+        </div>
+        <button class="btn btn-primary" id="generateBtn" onclick="generate()">
+          <span id="btnText">✨ 生成图片</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="result-area" id="resultArea">
+      <div class="card">
+        <div class="card-title">生成结果</div>
+        <div class="image-grid" id="imageGrid"></div>
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div class="status" id="status"></div>
+
+    <!-- History -->
+    <div class="card" id="historyCard" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div class="card-title" style="margin-bottom:0;">历史记录</div>
+        <button class="btn btn-secondary" style="padding:6px 14px;font-size:0.8rem;" onclick="clearHistory()">清空</button>
+      </div>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+    <img id="lightboxImg" src="" alt="">
+  </div>
+
+  <!-- Global prompt tooltip -->
+  <div class="prompt-tooltip" id="promptTooltip"></div>
+
+  <script>
+    const API_URL = 'https://apihub.agnes-ai.com/v1/images/generations';
+    const API_KEY = 'your_key';
+
+    // --- Elements ---
+    const promptEl     = document.getElementById('prompt');
+    const sizeEl       = document.getElementById('size');
+    const countEl      = document.getElementById('count');
+    const btnEl        = document.getElementById('generateBtn');
+    const btnTextEl    = document.getElementById('btnText');
+    const resultArea   = document.getElementById('resultArea');
+    const imageGrid    = document.getElementById('imageGrid');
+    const statusEl     = document.getElementById('status');
+    const historyCard  = document.getElementById('historyCard');
+    const historyList  = document.getElementById('historyList');
+    const lightbox     = document.getElementById('lightbox');
+    const lightboxImg  = document.getElementById('lightboxImg');
+
+    let history = JSON.parse(localStorage.getItem('t2i_history') || '[]');
+    renderHistory();
+
+    // --- Generate ---
+    async function generate() {
+      const prompt = promptEl.value.trim();
+      if (!prompt) {
+        setStatus('请输入提示词', 'error');
+        promptEl.focus();
+        return;
+      }
+
+      setLoading(true);
+      hideStatus();
+      resultArea.classList.remove('visible');
+
+      try {
+        const resp = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'agnes-image-2.0-flash',
+            prompt: prompt,
+            size: sizeEl.value,
+            n: parseInt(countEl.value, 10) || 1,
+          }),
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok || data.error) {
+          throw new Error(data.error?.message || `HTTP ${resp.status}`);
+        }
+
+        displayResults(data.data);
+        addToHistory(prompt, sizeEl.value, data.data);
+
+      } catch (err) {
+        setStatus('❌ ' + err.message, 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // --- Display ---
+    function displayResults(images) {
+      const count = images.length;
+      imageGrid.className = 'image-grid ' + (count === 1 ? 'single' : 'multi');
+      imageGrid.innerHTML = '';
+
+      images.forEach((img, i) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'image-wrapper';
+
+        const el = document.createElement('img');
+        el.src = img.url;
+        el.alt = `Generated image ${i + 1}`;
+        el.loading = 'lazy';
+        el.onclick = () => openLightbox(img.url);
+        wrapper.appendChild(el);
+
+        // Actions overlay
+        const actions = document.createElement('div');
+        actions.className = 'image-actions';
+        actions.innerHTML = `
+          <button class="icon-btn" title="下载" onclick="event.stopPropagation(); downloadImage('${img.url}', 'agnes-t2i-${Date.now()}-${i}.png')">⬇</button>
+          <button class="icon-btn" title="复制链接" onclick="event.stopPropagation(); copyLink('${img.url}')">🔗</button>
+        `;
+        wrapper.appendChild(actions);
+
+        imageGrid.appendChild(wrapper);
+      });
+
+      resultArea.classList.add('visible');
+    }
+
+    // --- Helpers ---
+    function setLoading(on) {
+      btnEl.disabled = on;
+      btnTextEl.innerHTML = on ? '<span class="spinner"></span> 生成中...' : '✨ 生成图片';
+    }
+
+    function setStatus(msg, type) {
+      statusEl.textContent = msg;
+      statusEl.className = 'status visible ' + type;
+    }
+
+    function hideStatus() {
+      statusEl.className = 'status';
+    }
+
+    function openLightbox(url) {
+      lightboxImg.src = url;
+      lightbox.classList.add('open');
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove('open');
+      lightboxImg.src = '';
+    }
+
+    // Close lightbox with Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeLightbox();
+    });
+
+    async function downloadImage(url, filename) {
+      try {
+        const resp = await fetch(url);
+        const blob = await resp.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch {
+        window.open(url, '_blank');
+      }
+    }
+
+    function copyLink(url) {
+      navigator.clipboard.writeText(url).then(() => {
+        setStatus('✅ 链接已复制到剪贴板', 'info');
+        setTimeout(hideStatus, 2000);
+      });
+    }
+
+    // --- History ---
+    function addToHistory(prompt, size, images) {
+      const entry = {
+        prompt,
+        size,
+        images: images.map(i => ({ url: i.url, revised_prompt: i.revised_prompt })),
+        time: Date.now(),
+      };
+      history.unshift(entry);
+      if (history.length > 20) history.pop();
+      try { localStorage.setItem('t2i_history', JSON.stringify(history)); } catch {}
+      renderHistory();
+    }
+
+    function renderHistory() {
+      if (history.length === 0) {
+        historyCard.style.display = 'none';
+        return;
+      }
+      historyCard.style.display = 'block';
+      historyList.innerHTML = history.map((h, i) => {
+        const thumb = h.images[0]?.url || '';
+        const time = new Date(h.time).toLocaleString('zh-CN');
+        const escapedPrompt = escapeHtml(h.prompt);
+        return `
+          <div class="history-item">
+            ${thumb ? `<img class="history-thumb" src="${thumb}" onclick="openLightbox('${thumb}')" alt="">` : ''}
+            <div class="history-info">
+              <div class="history-prompt" data-prompt="${escapeHtml(h.prompt)}">${escapedPrompt}</div>
+              <div class="history-meta">
+                ${h.size} · ${time}
+                <button class="history-copy-btn" onclick="copyPromptText(this, ${i})">📋 复制提示词</button>
+              </div>
+            </div>
+            <button class="icon-btn" style="opacity:0.5;width:auto;padding:0 10px;font-size:0.75rem;" onclick="retryPrompt(${i})">重新生成</button>
+          </div>
+        `;
+      }).join('');
+      // 渲染后检测哪些提示词被截断了
+      requestAnimationFrame(() => checkAllTruncation());
+    }
+
+    function retryPrompt(index) {
+      const h = history[index];
+      promptEl.value = h.prompt;
+      sizeEl.value = h.size;
+      generate();
+    }
+
+    function copyPromptText(btn, index) {
+      const h = history[index];
+      navigator.clipboard.writeText(h.prompt).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '✅ 已复制';
+        btn.style.color = '#4ade80';
+        btn.style.borderColor = '#4ade80';
+        setTimeout(() => {
+          btn.innerHTML = orig;
+          btn.style.color = '';
+          btn.style.borderColor = '';
+        }, 1500);
+      });
+    }
+
+    function clearHistory() {
+      history = [];
+      localStorage.removeItem('t2i_history');
+      renderHistory();
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // --- Prompt tooltip (mouse-follow) ---
+    const promptTooltip = document.getElementById('promptTooltip');
+
+    function checkAllTruncation() {
+      document.querySelectorAll('.history-prompt').forEach(el => {
+        const isOverflow = el.scrollWidth > el.clientWidth;
+        el._isTruncated = isOverflow && el.textContent.trim().length > 20;
+        if (el._isTruncated) {
+          el.classList.add('truncated');
+        } else {
+          el.classList.remove('truncated');
+        }
+      });
+      bindPromptEvents();
+    }
+
+    // 给 .history-prompt 绑定交互
+    function bindPromptEvents() {
+      document.querySelectorAll('.history-prompt').forEach(el => {
+        el.addEventListener('mouseenter', () => {
+          if (!el._isTruncated) return;
+          const text = el.getAttribute('data-prompt') || el.textContent;
+          promptTooltip.textContent = text;
+          promptTooltip.classList.add('visible');
+        });
+
+        el.addEventListener('mouseleave', () => {
+          promptTooltip.classList.remove('visible');
+        });
+
+        el.addEventListener('mousemove', (e) => {
+          if (!el._isTruncated) return;
+          const pad = 16;
+          let x = e.clientX + pad;
+          let y = e.clientY + pad;
+          const rect = promptTooltip.getBoundingClientRect();
+          if (x + rect.width > window.innerWidth - 10) {
+            x = e.clientX - rect.width - pad;
+          }
+          if (y + rect.height > window.innerHeight - 10) {
+            y = e.clientY - rect.height - pad;
+          }
+          promptTooltip.style.left = x + 'px';
+          promptTooltip.style.top = y + 'px';
+        });
+      });
+    }
+
+    // Enter to generate
+    promptEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        generate();
+      }
+    });
+  </script>
+</body>
+</html>
