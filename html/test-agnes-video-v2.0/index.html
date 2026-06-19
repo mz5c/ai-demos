@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agnes Video 2.0 — 文生视频测试</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface-hover: #22222e;
+      --border: #2a2a3a;
+      --text: #e4e4ed;
+      --text-muted: #8888a0;
+      --accent: #f08c3e;
+      --accent-glow: rgba(240, 140, 62, 0.25);
+      --danger: #f06e7e;
+      --success: #4ade80;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #f08c3e, #f54f7e);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    /* --- Card --- */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    /* --- Prompt textarea --- */
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 14px 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: inherit;
+      line-height: 1.6;
+      resize: vertical;
+      transition: border-color 0.2s;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* --- Controls row --- */
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-group label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    select, input[type="number"] {
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.9rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    select:focus, input[type="number"]:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    input[type="number"] {
+      width: 80px;
+    }
+
+    /* --- Buttons --- */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 28px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      font-family: inherit;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #d97a2e;
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: var(--bg);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      color: var(--text);
+      border-color: var(--text-muted);
+    }
+
+    /* --- Loading spinner --- */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* --- Progress bar --- */
+    .progress-section {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .progress-section.visible {
+      display: flex;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .progress-status {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .progress-percent {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .progress-bar-track {
+      width: 100%;
+      height: 6px;
+      background: var(--bg);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #f08c3e, #f54f7e);
+      border-radius: 3px;
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+
+    /* --- Video result --- */
+    .result-area {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .result-area.visible {
+      display: flex;
+    }
+
+    .video-wrapper {
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .video-wrapper video {
+      width: 100%;
+      display: block;
+      border-radius: 10px;
+    }
+
+    .video-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    /* --- Status / error --- */
+    .status {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      display: none;
+    }
+
+    .status.visible { display: block; }
+
+    .status.error {
+      background: rgba(240, 110, 126, 0.1);
+      border: 1px solid rgba(240, 110, 126, 0.25);
+      color: var(--danger);
+    }
+
+    .status.info {
+      background: rgba(240, 140, 62, 0.1);
+      border: 1px solid rgba(240, 140, 62, 0.25);
+      color: #f5a862;
+    }
+
+    .status.success {
+      background: rgba(74, 222, 128, 0.1);
+      border: 1px solid rgba(74, 222, 128, 0.25);
+      color: var(--success);
+    }
+
+    /* --- History --- */
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .history-item:last-child { border-bottom: none; }
+
+    .history-thumb {
+      width: 80px;
+      height: 56px;
+      border-radius: 8px;
+      background: var(--bg);
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      color: var(--text-muted);
+    }
+
+    .history-thumb:hover { opacity: 0.8; }
+
+    .history-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .history-prompt {
+      font-size: 0.85rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .history-prompt:hover {
+      background: var(--bg);
+      color: var(--accent);
+    }
+
+    .history-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .history-copy-btn {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .history-copy-btn:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    /* --- Icon button --- */
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(8px);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.2s;
+    }
+
+    .icon-btn:hover {
+      background: rgba(0,0,0,0.8);
+    }
+
+    /* --- Prompt tooltip --- */
+    .prompt-tooltip {
+      display: none;
+      position: fixed;
+      z-index: 9999;
+      max-width: 420px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+      pointer-events: none;
+    }
+
+    .prompt-tooltip.visible {
+      display: block;
+      opacity: 1;
+    }
+
+    /* --- Responsive --- */
+    @media (max-width: 600px) {
+      .container { padding: 24px 16px; }
+      header h1 { font-size: 1.5rem; }
+      .controls { flex-direction: column; align-items: stretch; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎬 Agnes Video 2.0</h1>
+      <p>AI 文生视频模型在线测试</p>
+    </header>
+
+    <!-- Prompt Input -->
+    <div class="card">
+      <div class="card-title">提示词</div>
+      <textarea id="prompt" placeholder="描述你想生成的视频，例如：一只金毛犬在草地上奔跑，阳光明媚的下午，电影质感，慢动作效果"></textarea>
+    </div>
+
+    <!-- Settings -->
+    <div class="card">
+      <div class="card-title">设置</div>
+      <div class="controls">
+        <div class="control-group">
+          <label for="duration">时长</label>
+          <select id="duration">
+            <option value="5" selected>5 秒</option>
+            <option value="10">10 秒</option>
+            <option value="15">15 秒</option>
+            <option value="18">18 秒</option>
+            <option value="20">20 秒</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="aspect">比例</label>
+          <select id="aspect">
+            <option value="16:9" selected>16:9 (横屏)</option>
+            <option value="9:16">9:16 (竖屏)</option>
+            <option value="1:1">1:1 (方形)</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="motion">生成模式</label>
+          <select id="motion">
+            <option value="std" selected>std (标准)</option>
+            <option value="pro">pro (专业)</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="generateBtn" onclick="generate()">
+          <span id="btnText">🎬 生成视频</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="card progress-section" id="progressSection">
+      <div class="card-title">生成进度</div>
+      <div class="progress-header">
+        <span class="progress-status" id="progressStatus">排队中...</span>
+        <span class="progress-percent" id="progressPercent">0%</span>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressBar"></div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="result-area" id="resultArea">
+      <div class="card">
+        <div class="card-title">生成结果</div>
+        <div class="video-wrapper">
+          <video id="videoPlayer" controls loop>
+            你的浏览器不支持 HTML5 video 标签。
+          </video>
+        </div>
+        <div class="video-actions" style="margin-top: 12px;">
+          <button class="btn btn-secondary" onclick="downloadVideo()" id="downloadBtn">⬇ 下载视频</button>
+          <button class="btn btn-secondary" onclick="copyVideoLink()" id="copyLinkBtn">🔗 复制链接</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div class="status" id="status"></div>
+
+    <!-- History -->
+    <div class="card" id="historyCard" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div class="card-title" style="margin-bottom:0;">历史记录</div>
+        <button class="btn btn-secondary" style="padding:6px 14px;font-size:0.8rem;" onclick="clearHistory()">清空</button>
+      </div>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <!-- Global prompt tooltip -->
+  <div class="prompt-tooltip" id="promptTooltip"></div>
+
+  <script>
+    const API_URL = 'https://apihub.agnes-ai.com/v1/videos';
+    const POLL_URL = 'https://apihub.agnes-ai.com/agnesapi';
+    const API_KEY = 'your_key';
+
+    // --- Elements ---
+    const promptEl        = document.getElementById('prompt');
+    const durationEl      = document.getElementById('duration');
+    const aspectEl        = document.getElementById('aspect');
+    const motionEl        = document.getElementById('motion');
+    const btnEl           = document.getElementById('generateBtn');
+    const btnTextEl       = document.getElementById('btnText');
+    const progressSection = document.getElementById('progressSection');
+    const progressStatus  = document.getElementById('progressStatus');
+    const progressPercent = document.getElementById('progressPercent');
+    const progressBar     = document.getElementById('progressBar');
+    const resultArea      = document.getElementById('resultArea');
+    const videoPlayer     = document.getElementById('videoPlayer');
+    const statusEl        = document.getElementById('status');
+    const historyCard     = document.getElementById('historyCard');
+    const historyList     = document.getElementById('historyList');
+
+    let pollingTimer = null;
+    let currentVideoUrl = null;
+    let currentTaskInfo = null; // { prompt, duration, aspect, motion }
+
+    let history = JSON.parse(localStorage.getItem('t2v_history') || '[]');
+    renderHistory();
+
+    // --- Generate ---
+    async function generate() {
+      const prompt = promptEl.value.trim();
+      if (!prompt) {
+        setStatus('请输入提示词', 'error');
+        promptEl.focus();
+        return;
+      }
+
+      // Clean up any running poll
+      stopPolling();
+      setLoading(true);
+      hideStatus();
+      hideProgress();
+      resultArea.classList.remove('visible');
+      currentVideoUrl = null;
+      currentTaskInfo = null;
+
+      try {
+        // Step 1: Create video task
+        setStatus('正在创建视频任务...', 'info');
+
+        const createResp = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'agnes-video-v2.0',
+            prompt: prompt,
+            duration: parseInt(durationEl.value, 10),
+            aspect_ratio: aspectEl.value,
+            motion_mode: motionEl.value,
+          }),
+        });
+
+        const createData = await createResp.json();
+
+        if (!createResp.ok || createData.error) {
+          throw new Error(createData.error?.message || `HTTP ${createResp.status}`);
+        }
+
+        if (createData.status === 'failed') {
+          throw new Error(createData.error || '任务创建失败');
+        }
+
+        const videoId = createData.video_id;
+        if (!videoId) {
+          throw new Error('未获取到 video_id，响应: ' + JSON.stringify(createData));
+        }
+
+        // Store task info
+        currentTaskInfo = {
+          prompt: prompt,
+          duration: durationEl.value,
+          aspect: aspectEl.value,
+          motion: motionEl.value,
+        };
+
+        hideStatus();
+        showProgress();
+
+        // Step 2: Start polling
+        pollVideoResult(videoId);
+
+      } catch (err) {
+        setStatus('❌ ' + err.message, 'error');
+        setLoading(false);
+        hideProgress();
+      }
+    }
+
+    // --- Polling ---
+    function pollVideoResult(videoId) {
+      const POLL_INTERVAL = 5000; // 5 seconds as recommended
+
+      const poll = async () => {
+        try {
+          const resp = await fetch(`${POLL_URL}?video_id=${videoId}`, {
+            headers: {
+              'Authorization': 'Bearer ' + API_KEY,
+            },
+          });
+
+          const data = await resp.json();
+
+          if (!resp.ok || data.error) {
+            throw new Error(data.error?.message || `HTTP ${resp.status}`);
+          }
+
+          const status = data.status;
+          const progress = data.progress || 0;
+
+          // Update progress UI
+          updateProgress(status, progress);
+
+          if (status === 'completed') {
+            // Video ready!
+            const videoUrl = data.remixed_from_video_id || data.video_url || data.url;
+            if (!videoUrl) {
+              throw new Error('视频生成完成但未获取到下载链接');
+            }
+            currentVideoUrl = videoUrl;
+            stopPolling();
+            displayVideo(videoUrl);
+            addToHistory(currentTaskInfo, videoUrl);
+            setLoading(false);
+            hideProgress();
+            setStatus('✅ 视频生成完成！', 'success');
+            setTimeout(hideStatus, 3000);
+            return;
+          }
+
+          if (status === 'failed') {
+            throw new Error(data.error || '视频生成失败');
+          }
+
+          // Continue polling
+          pollingTimer = setTimeout(poll, POLL_INTERVAL);
+
+        } catch (err) {
+          stopPolling();
+          setStatus('❌ ' + err.message, 'error');
+          setLoading(false);
+          hideProgress();
+        }
+      };
+
+      // Start first poll after a short delay
+      pollingTimer = setTimeout(poll, POLL_INTERVAL);
+    }
+
+    function stopPolling() {
+      if (pollingTimer) {
+        clearTimeout(pollingTimer);
+        pollingTimer = null;
+      }
+    }
+
+    // --- Progress UI ---
+    function showProgress() {
+      progressSection.classList.add('visible');
+      updateProgress('queued', 0);
+    }
+
+    function hideProgress() {
+      progressSection.classList.remove('visible');
+    }
+
+    function updateProgress(status, percent) {
+      const statusMap = {
+        'queued': '排队中...',
+        'in_progress': '正在生成视频...',
+        'processing': '正在生成视频...',
+        'completed': '生成完成！',
+        'failed': '生成失败',
+      };
+      progressStatus.textContent = statusMap[status] || status;
+      progressPercent.textContent = percent + '%';
+      progressBar.style.width = percent + '%';
+    }
+
+    // --- Display Video ---
+    function displayVideo(videoUrl) {
+      videoPlayer.src = videoUrl;
+      videoPlayer.load();
+      resultArea.classList.add('visible');
+    }
+
+    function downloadVideo() {
+      if (currentVideoUrl) {
+        window.open(currentVideoUrl, '_blank');
+      }
+    }
+
+    function copyVideoLink() {
+      if (currentVideoUrl) {
+        navigator.clipboard.writeText(currentVideoUrl).then(() => {
+          setStatus('✅ 视频链接已复制到剪贴板', 'success');
+          setTimeout(hideStatus, 2000);
+        }).catch(() => {
+          setStatus('复制失败，请手动复制链接', 'error');
+        });
+      }
+    }
+
+    // --- Helpers ---
+    function setLoading(on) {
+      btnEl.disabled = on;
+      btnTextEl.innerHTML = on
+        ? '<span class="spinner"></span> 生成中...'
+        : '🎬 生成视频';
+    }
+
+    function setStatus(msg, type) {
+      statusEl.textContent = msg;
+      statusEl.className = 'status visible ' + type;
+    }
+
+    function hideStatus() {
+      statusEl.className = 'status';
+    }
+
+    // --- History ---
+    function addToHistory(taskInfo, videoUrl) {
+      const entry = {
+        prompt: taskInfo.prompt,
+        duration: taskInfo.duration,
+        aspect: taskInfo.aspect,
+        motion: taskInfo.motion,
+        videoUrl: videoUrl,
+        time: Date.now(),
+      };
+      history.unshift(entry);
+      if (history.length > 20) history.pop();
+      try { localStorage.setItem('t2v_history', JSON.stringify(history)); } catch {}
+      renderHistory();
+    }
+
+    function renderHistory() {
+      if (history.length === 0) {
+        historyCard.style.display = 'none';
+        return;
+      }
+      historyCard.style.display = 'block';
+      historyList.innerHTML = history.map((h, i) => {
+        const time = new Date(h.time).toLocaleString('zh-CN');
+        const escapedPrompt = escapeHtml(h.prompt);
+        return `
+          <div class="history-item">
+            <div class="history-thumb" onclick="playHistoryVideo(${i})">▶</div>
+            <div class="history-info">
+              <div class="history-prompt" data-prompt="${escapedPrompt}">${escapedPrompt}</div>
+              <div class="history-meta">
+                ${h.duration}s · ${h.aspect} · ${h.motion} · ${time}
+                <button class="history-copy-btn" onclick="copyPromptText(this, ${i})">📋 复制提示词</button>
+              </div>
+            </div>
+            <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.75rem;" onclick="retryPrompt(${i})">重新生成</button>
+          </div>
+        `;
+      }).join('');
+      bindPromptTooltips();
+    }
+
+    function playHistoryVideo(index) {
+      const h = history[index];
+      if (h.videoUrl) {
+        currentVideoUrl = h.videoUrl;
+        currentTaskInfo = {
+          prompt: h.prompt,
+          duration: h.duration,
+          aspect: h.aspect,
+          motion: h.motion,
+        };
+        displayVideo(h.videoUrl);
+        hideProgress();
+        hideStatus();
+        resultArea.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    function retryPrompt(index) {
+      const h = history[index];
+      promptEl.value = h.prompt;
+      durationEl.value = h.duration;
+      aspectEl.value = h.aspect;
+      motionEl.value = h.motion;
+      // Scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => generate(), 300);
+    }
+
+    function copyPromptText(btn, index) {
+      const h = history[index];
+      navigator.clipboard.writeText(h.prompt).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '✅ 已复制';
+        btn.style.color = '#4ade80';
+        btn.style.borderColor = '#4ade80';
+        setTimeout(() => {
+          btn.innerHTML = orig;
+          btn.style.color = '';
+          btn.style.borderColor = '';
+        }, 1500);
+      });
+    }
+
+    function clearHistory() {
+      history = [];
+      localStorage.removeItem('t2v_history');
+      renderHistory();
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // --- Prompt tooltip (mouse-follow) ---
+    const promptTooltip = document.getElementById('promptTooltip');
+
+    function bindPromptTooltips() {
+      document.querySelectorAll('.history-prompt').forEach(el => {
+        el.addEventListener('mouseenter', () => {
+          const isOverflow = el.scrollWidth > el.clientWidth;
+          if (!isOverflow) return;
+          const text = el.getAttribute('data-prompt') || el.textContent;
+          promptTooltip.textContent = text;
+          promptTooltip.classList.add('visible');
+        });
+
+        el.addEventListener('mouseleave', () => {
+          promptTooltip.classList.remove('visible');
+        });
+
+        el.addEventListener('mousemove', (e) => {
+          const pad = 16;
+          let x = e.clientX + pad;
+          let y = e.clientY + pad;
+          const rect = promptTooltip.getBoundingClientRect();
+          if (x + rect.width > window.innerWidth - 10) {
+            x = e.clientX - rect.width - pad;
+          }
+          if (y + rect.height > window.innerHeight - 10) {
+            y = e.clientY - rect.height - pad;
+          }
+          promptTooltip.style.left = x + 'px';
+          promptTooltip.style.top = y + 'px';
+        });
+      });
+    }
+
+    // Enter to generate
+    promptEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        generate();
+      }
+    });
+
+    // Also bind tooltips on history items rendered via renderHistory
+    // This is called inside renderHistory now
+  </script>
+</body>
+</html>
