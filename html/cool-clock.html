@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>酷炫动态时钟</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+  <style>
+    body { margin: 0; padding: 0; overflow: hidden; background: #000; }
+  </style>
+</head>
+<body>
+<script>
+// ========== 粒子系统 ==========
+class Particle {
+  constructor(x, y, hueVal) {
+    this.pos = createVector(x, y);
+    this.vel = p5.Vector.random2D().mult(random(0.3, 1.5));
+    this.alpha = random(100, 255);
+    this.size = random(1.5, 4);
+    this.hue = hueVal + random(-20, 20);
+    this.life = 255;
+    this.decay = random(0.8, 2.5);
+  }
+
+  update() {
+    this.pos.add(this.vel);
+    this.life -= this.decay;
+    this.alpha = map(this.life, 0, 255, 0, 255);
+    this.vel.mult(0.99); // slight drag
+  }
+
+  display() {
+    noStroke();
+    // HSB: hue 0-360, saturation 0-100, brightness 0-100, alpha 0-255
+    fill(this.hue, 80, 90, this.alpha);
+    ellipse(this.pos.x, this.pos.y, this.size);
+  }
+
+  isDead() {
+    return this.life <= 0;
+  }
+}
+
+// ========== 轨道点 ==========
+class OrbitDot {
+  constructor(radius, speed, hueBase, size) {
+    this.radius = radius;
+    this.speed = speed;
+    this.angle = random(TWO_PI);
+    this.hueBase = hueBase;
+    this.size = size;
+    this.trail = [];
+    this.maxTrail = 30;
+  }
+
+  update() {
+    this.angle += this.speed;
+    this.trail.unshift(createVector(
+      width / 2 + cos(this.angle) * this.radius,
+      height / 2 + sin(this.angle) * this.radius
+    ));
+    if (this.trail.length > this.maxTrail) {
+      this.trail.pop();
+    }
+  }
+
+  display() {
+    // Draw trail
+    noFill();
+    for (let i = 1; i < this.trail.length; i++) {
+      let t = map(i, 0, this.trail.length, 0, 1);
+      stroke(this.hueBase, 70, 90, t * 80);
+      strokeWeight(map(i, 0, this.trail.length, 0.5, this.size));
+      line(this.trail[i - 1].x, this.trail[i - 1].y,
+           this.trail[i].x, this.trail[i].y);
+    }
+    // Draw dot
+    noStroke();
+    fill(this.hueBase, 70, 95, 200);
+    ellipse(
+      width / 2 + cos(this.angle) * this.radius,
+      height / 2 + sin(this.angle) * this.radius,
+      this.size + 2
+    );
+    fill(this.hueBase, 50, 100, 255);
+    ellipse(
+      width / 2 + cos(this.angle) * this.radius,
+      height / 2 + sin(this.angle) * this.radius,
+      this.size
+    );
+  }
+}
+
+// ========== 全局变量 ==========
+let particles = [];
+let orbitDots = [];
+let bgHue = 230;
+let _prevSec = -1;
+let _prevMin = -1;
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  colorMode(HSB, 360, 100, 100, 255);
+  angleMode(RADIANS);
+
+  // 秒针轨道点
+  orbitDots.push(new OrbitDot(min(width, height) * 0.38, TWO_PI / 60, 0, 3));
+  // 分针轨道点
+  orbitDots.push(new OrbitDot(min(width, height) * 0.30, TWO_PI / 3600, 120, 4));
+  // 时针轨道点
+  orbitDots.push(new OrbitDot(min(width, height) * 0.22, TWO_PI / 43200, 240, 5));
+
+  // 装饰轨道
+  for (let i = 0; i < 12; i++) {
+    orbitDots.push(new OrbitDot(
+      min(width, height) * (0.12 + random() * 0.05),
+      random(-0.005, 0.005),
+      random(360),
+      random(1, 2.5)
+    ));
+  }
+}
+
+function draw() {
+  // 半透明背景实现拖尾效果
+  background(bgHue, 60, 5, 30);
+
+  let cx = width / 2;
+  let cy = height / 2;
+  let time = new Date();
+  let hours = time.getHours() % 12;
+  let minutes = time.getMinutes();
+  let seconds = time.getSeconds();
+  let millis_ = time.getMilliseconds();
+
+  // 平滑过渡色相
+  let cycleHue = (frameCount * 0.1) % 360;
+  bgHue = lerp(bgHue, cycleHue + 220, 0.01);
+
+  // ========== 中心光晕 ==========
+  noStroke();
+  for (let r = 120; r > 0; r -= 5) {
+    let a = map(r, 0, 120, 40, 0);
+    fill(cycleHue, 50, 80, a);
+    ellipse(cx, cy, r * 2);
+  }
+
+  // ========== 刻度环 ==========
+  let ringRadius = min(width, height) * 0.42;
+
+  // 外圈发光环
+  noFill();
+  stroke(cycleHue, 40, 60, 25);
+  strokeWeight(2);
+  ellipse(cx, cy, ringRadius * 2.15);
+
+  // 绘制刻度和数字
+  for (let i = 0; i < 60; i++) {
+    let angle = map(i, 0, 60, -HALF_PI, PI + HALF_PI);
+    let isHour = (i % 5 === 0);
+    let innerR = isHour ? ringRadius - 18 : ringRadius - 8;
+    let outerR = ringRadius;
+
+    let hueOffset = map(i, 0, 60, 0, 360);
+
+    stroke(hueOffset + cycleHue, 60, 80, isHour ? 150 : 60);
+    strokeWeight(isHour ? 2.5 : 1);
+    line(
+      cx + cos(angle) * innerR,
+      cy + sin(angle) * innerR,
+      cx + cos(angle) * outerR,
+      cy + sin(angle) * outerR
+    );
+
+    // 小时数字
+    if (isHour) {
+      let num = i / 5 === 0 ? 12 : i / 5;
+      fill(hueOffset + cycleHue, 40, 90, 180);
+      noStroke();
+      textAlign(CENTER, CENTER);
+      textSize(isHour ? 22 : 14);
+      textFont('monospace');
+      text(num, cx + cos(angle) * (ringRadius - 35),
+               cy + sin(angle) * (ringRadius - 35));
+    }
+  }
+
+  // ========== 内圈装饰 ==========
+  noFill();
+  for (let r = 0; r < 3; r++) {
+    let rr = ringRadius * (0.55 + r * 0.12);
+    stroke((cycleHue + r * 40) % 360, 30, 50, 15);
+    strokeWeight(0.8);
+    ellipse(cx, cy, rr * 2);
+  }
+
+  // ========== 指针（带发光效果）==========
+  // 秒针
+  let secAngle = map(seconds + millis_ / 1000, 0, 60, -HALF_PI, PI + HALF_PI);
+  drawNeedle(cx, cy, secAngle, ringRadius * 0.85, 1.5, cycleHue, 0, 255);
+
+  // 分针
+  let minAngle = map(minutes + seconds / 60, 0, 60, -HALF_PI, PI + HALF_PI);
+  drawNeedle(cx, cy, minAngle, ringRadius * 0.68, 2.5, cycleHue + 120, 60, 220);
+
+  // 时针
+  let hrAngle = map(hours + minutes / 60, 0, 12, -HALF_PI, PI + HALF_PI);
+  drawNeedle(cx, cy, hrAngle, ringRadius * 0.48, 4, cycleHue + 240, 80, 180);
+
+  // ========== 中心点 ==========
+  noStroke();
+  fill(cycleHue, 60, 95, 255);
+  ellipse(cx, cy, 10);
+  fill(0, 0, 100, 255);
+  ellipse(cx, cy, 5);
+
+  // ========== 数字时间显示 ==========
+  let timeStr = nf(hours, 2) + ':' + nf(minutes, 2) + ':' + nf(seconds, 2);
+  fill(cycleHue, 30, 95, 200);
+  noStroke();
+  textSize(18);
+  textFont('monospace');
+  textAlign(CENTER, CENTER);
+  text(timeStr, cx, cy + ringRadius * 0.65);
+
+  // ========== 日期显示 ==========
+  let dateStr = time.getFullYear() + '-' + nf(time.getMonth() + 1, 2) + '-' + nf(time.getDate(), 2);
+  fill((cycleHue + 180) % 360, 25, 80, 120);
+  textSize(13);
+  text(dateStr, cx, cy + ringRadius * 0.75);
+
+  // ========== 更新轨道点 ==========
+  for (let dot of orbitDots) {
+    dot.update();
+    dot.display();
+  }
+
+  // ========== 粒子效果（每秒爆发）==========
+  if (seconds !== _prevSec) {
+    for (let i = 0; i < 30; i++) {
+      let angle = random(TWO_PI);
+      let dist = random(20, 60);
+      particles.push(new Particle(
+        cx + cos(angle) * dist,
+        cy + sin(angle) * dist,
+        cycleHue + random(60)
+      ));
+    }
+  }
+
+  // 分针整点粒子
+  if (minutes !== _prevMin && seconds === 0) {
+    for (let i = 0; i < 15; i++) {
+      particles.push(new Particle(cx, cy, cycleHue + 120 + random(40)));
+    }
+  }
+
+  // 更新和绘制粒子
+  for (let i = particles.length - 1; i >= 0; i--) {
+    particles[i].update();
+    particles[i].display();
+    if (particles[i].isDead()) {
+      particles.splice(i, 1);
+    }
+  }
+
+  _prevSec = seconds;
+  _prevMin = minutes;
+}
+
+function drawNeedle(cx, cy, angle, length, weight, hue, sat, bright) {
+  let ex = cx + cos(angle) * length;
+  let ey = cy + sin(angle) * length;
+  let bx = cx - cos(angle) * length * 0.15;
+  let by = cy - sin(angle) * length * 0.15;
+
+  // 发光效果
+  noFill();
+  stroke(hue, sat, bright, 30);
+  strokeWeight(weight + 6);
+  line(bx, by, ex, ey);
+
+  stroke(hue, sat, bright, 50);
+  strokeWeight(weight + 3);
+  line(bx, by, ex, ey);
+
+  // 针体
+  stroke(hue, sat, bright, 220);
+  strokeWeight(weight);
+  line(bx, by, ex, ey);
+
+  // 针尖亮点
+  noStroke();
+  fill(hue, 40, 100, 255);
+  ellipse(ex, ey, weight * 1.5);
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}
+</script>
+</body>
+</html>
