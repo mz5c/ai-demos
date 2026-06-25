@@ -328,6 +328,142 @@ class Board {
     this._idCounter = snap.idCounter;
   }
 }
+
+/**
+ * Renderer — DOM-based tile rendering with CSS transition/animation.
+ * Reads Board data, creates/updates tile elements.
+ */
+class Renderer {
+  constructor(boardEl, tileContainer, gridCells) {
+    this.boardEl = boardEl;
+    this.tileContainer = tileContainer;
+    this.gridCells = gridCells;
+    this.tileEls = new Map(); // tile.id → HTMLElement
+    this.cellSize = 0;
+    this.gap = 0;
+    this.size = 4;
+
+    // Create static background cells
+    for (let i = 0; i < this.size * this.size; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'grid-cell';
+      gridCells.appendChild(cell);
+    }
+
+    this.updateLayout();
+    window.addEventListener('resize', () => this.updateLayout());
+  }
+
+  updateLayout() {
+    const rect = this.boardEl.getBoundingClientRect();
+    const style = getComputedStyle(this.boardEl);
+    this.gap = parseFloat(style.getPropertyValue('--cell-gap'));
+    const inner = rect.width - this.gap * 2;
+    this.cellSize = (inner - this.gap * (this.size - 1)) / this.size;
+  }
+
+  _tilePos(row, col) {
+    const step = this.cellSize + this.gap;
+    return `translate(${col * step}px, ${row * step}px)`;
+  }
+
+  _tileSize() { return `${this.cellSize}px`; }
+
+  _tileClass(value) {
+    if (value <= 2048) return 'tile-' + value;
+    return 'tile-super';
+  }
+
+  /** Full render from Board state */
+  render(board) {
+    // Remove stale tile elements
+    const activeIds = new Set();
+    board._eachCell((r, c, t) => { if (t) activeIds.add(t.id); });
+    this.tileEls.forEach((el, id) => {
+      if (!activeIds.has(id)) { el.remove(); this.tileEls.delete(id); }
+    });
+
+    // Create or update tile elements
+    board._eachCell((r, c, tile) => {
+      if (!tile) return;
+      let el = this.tileEls.get(tile.id);
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'tile';
+        this.tileContainer.appendChild(el);
+        this.tileEls.set(tile.id, el);
+      }
+
+      el.style.transform = this._tilePos(r, c);
+      el.style.width = this._tileSize();
+      el.style.height = this._tileSize();
+      el.textContent = tile.value;
+      el.className = 'tile ' + this._tileClass(tile.value);
+
+      if (tile.isNew) {
+        el.classList.add('tile-new');
+        tile.isNew = false;
+        setTimeout(() => el.classList.remove('tile-new'), 220);
+      }
+      if (tile.isMerged) {
+        el.classList.add('tile-merged');
+        tile.isMerged = false;
+        setTimeout(() => el.classList.remove('tile-merged'), 270);
+      }
+    });
+  }
+
+  /** Return pixel position of a grid cell center (for particle emission) */
+  cellCenter(row, col) {
+    const step = this.cellSize + this.gap;
+    return {
+      x: col * step + this.cellSize / 2,
+      y: row * step + this.cellSize / 2,
+    };
+  }
+
+  updateScore(scoreEl, bestEl, score, best) {
+    scoreEl.textContent = score;
+    scoreEl.classList.remove('score-pop');
+    void scoreEl.offsetWidth;
+    scoreEl.classList.add('score-pop');
+    bestEl.textContent = best;
+  }
+
+  showCombo(badgeEl, count) {
+    if (!badgeEl) return;
+    if (count > 0) {
+      badgeEl.textContent = `\u{1F525} x${count} COMBO`;
+      badgeEl.classList.add('active');
+      badgeEl.classList.toggle('hot', count >= 3);
+    } else {
+      badgeEl.classList.remove('active', 'hot');
+    }
+  }
+
+  showOverlay(overlay, title, msg, btnText, onClick) {
+    const titleEl = overlay.querySelector('h2');
+    const msgEl = overlay.querySelector('p');
+    const btn = overlay.querySelector('button');
+    titleEl.textContent = title;
+    msgEl.textContent = msg;
+    btn.textContent = btnText;
+    btn.onclick = onClick;
+    overlay.classList.add('active');
+  }
+
+  hideOverlay(overlay) {
+    overlay.classList.remove('active');
+  }
+
+  showMilestone(value) {
+    const toast = document.createElement('div');
+    toast.className = 'milestone-toast';
+    toast.textContent = `\u{1F389} ${value}!`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 1300);
+  }
+}
 </script>
 </body>
 </html>
