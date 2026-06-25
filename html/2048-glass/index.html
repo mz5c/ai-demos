@@ -657,6 +657,156 @@ class ParticleFX {
     requestAnimationFrame(this._tick);
   }
 }
+
+/**
+ * AudioEngine — Web Audio API sound synthesis (zero file dependencies).
+ * Lazy-init AudioContext on first user interaction (browser autoplay policy).
+ */
+class AudioEngine {
+  constructor() {
+    this.ctx = null;
+    this.muted = localStorage.getItem('mute2048glass') === 'true';
+  }
+
+  _init() {
+    if (this.ctx) return;
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+
+  toggleMute() {
+    this.muted = !this.muted;
+    localStorage.setItem('mute2048glass', this.muted);
+    return this.muted;
+  }
+
+  /** Generate short noise buffer for slide effect */
+  _noiseBuffer(duration) {
+    const sr = this.ctx.sampleRate;
+    const len = sr * duration;
+    const buf = this.ctx.createBuffer(1, len, sr);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    return buf;
+  }
+
+  play(name, opts = {}) {
+    if (this.muted) return;
+    this._init();
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    switch (name) {
+      case 'slide': {
+        const src = ctx.createBufferSource();
+        src.buffer = this._noiseBuffer(0.05);
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass'; filter.frequency.value = 800;
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        src.connect(filter).connect(gain).connect(ctx.destination);
+        src.start(now); src.stop(now + 0.05);
+        break;
+      }
+      case 'merge-small': {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.linearRampToValueAtTime(880, now + 0.08);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now); osc.stop(now + 0.1);
+        break;
+      }
+      case 'merge-medium': {
+        // Main tone
+        const osc1 = ctx.createOscillator();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(330, now);
+        osc1.frequency.linearRampToValueAtTime(990, now + 0.12);
+        const g1 = ctx.createGain();
+        g1.gain.setValueAtTime(0.12, now);
+        g1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc1.connect(g1).connect(ctx.destination);
+        osc1.start(now); osc1.stop(now + 0.15);
+        // Harmonic overtone
+        const osc2 = ctx.createOscillator();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(660, now);
+        osc2.frequency.linearRampToValueAtTime(1980, now + 0.12);
+        const g2 = ctx.createGain();
+        g2.gain.setValueAtTime(0.05, now);
+        g2.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc2.connect(g2).connect(ctx.destination);
+        osc2.start(now); osc2.stop(now + 0.15);
+        break;
+      }
+      case 'merge-large': {
+        const osc1 = ctx.createOscillator();
+        osc1.type = 'triangle';
+        osc1.frequency.setValueAtTime(220, now);
+        osc1.frequency.linearRampToValueAtTime(1320, now + 0.2);
+        const g1 = ctx.createGain();
+        g1.gain.setValueAtTime(0.18, now);
+        g1.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        osc1.connect(g1).connect(ctx.destination);
+        osc1.start(now); osc1.stop(now + 0.25);
+        // Fifth overtone
+        const osc2 = ctx.createOscillator();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(330, now);
+        osc2.frequency.linearRampToValueAtTime(1980, now + 0.2);
+        const g2 = ctx.createGain();
+        g2.gain.setValueAtTime(0.08, now);
+        g2.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        osc2.connect(g2).connect(ctx.destination);
+        osc2.start(now); osc2.stop(now + 0.25);
+        break;
+      }
+      case 'combo': {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.linearRampToValueAtTime(1760, now + 0.06);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now); osc.stop(now + 0.08);
+        break;
+      }
+      case 'milestone': {
+        const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
+        notes.forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          const gain = ctx.createGain();
+          const t = now + i * 0.08;
+          gain.gain.setValueAtTime(0.12, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(t); osc.stop(t + 0.15);
+        });
+        break;
+      }
+      case 'gameover': {
+        const osc = ctx.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(660, now);
+        osc.frequency.linearRampToValueAtTime(110, now + 0.4);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now); osc.stop(now + 0.5);
+        break;
+      }
+    }
+  }
+}
 </script>
 </body>
 </html>
