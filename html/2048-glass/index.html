@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#667eea">
+<title>2048 Glass</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-start:#667eea;--bg-end:#764ba2;
+  --board-bg:rgba(255,255,255,0.08);--cell-bg:rgba(255,255,255,0.06);
+  --text:#fff;--text-dim:rgba(255,255,255,0.6);
+  --radius:14px;--cell-gap:10px;--container-px:15px;--container-py:20px;
+}
+body{
+  background:linear-gradient(135deg,var(--bg-start),var(--bg-end));
+  color:var(--text);font-family:'Poppins',system-ui,-apple-system,sans-serif;
+  min-height:100vh;display:flex;justify-content:center;align-items:flex-start;
+  padding:var(--container-py) var(--container-px);
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+  transition:background .8s ease;
+}
+
+.app{width:100%;max-width:500px}
+
+/* Header */
+.header{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.title{font-size:clamp(2.2rem,7vw,2.8rem);font-weight:900;line-height:1;letter-spacing:-2px;margin-right:auto;text-shadow:0 2px 10px rgba(0,0,0,.15)}
+.scores{display:flex;gap:8px}
+.score-box{
+  background:rgba(255,255,255,.12);backdrop-filter:blur(8px);
+  border-radius:10px;padding:6px 16px;text-align:center;min-width:80px;
+  border:1px solid rgba(255,255,255,.1);
+}
+.score-box .label{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);font-weight:600}
+.score-box .value{font-size:20px;font-weight:800;color:#fff;line-height:1.2}
+.btn{
+  background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.2);
+  border-radius:10px;padding:10px 20px;font-size:13px;font-weight:700;
+  cursor:pointer;transition:all .15s;letter-spacing:.3px;backdrop-filter:blur(4px);
+}
+.btn:hover{background:rgba(255,255,255,.25);transform:translateY(-1px)}
+.btn:active{transform:scale(.96)}
+.btn-icon{width:40px;height:40px;padding:0;display:flex;align-items:center;justify-content:center;font-size:18px}
+
+/* Board */
+.board-wrap{position:relative}
+.board{
+  position:relative;background:var(--board-bg);backdrop-filter:blur(12px);
+  border-radius:var(--radius);padding:var(--cell-gap);aspect-ratio:1;width:100%;
+  overflow:hidden;touch-action:none;border:1px solid rgba(255,255,255,.1);
+}
+.grid-cells{display:grid;gap:var(--cell-gap);grid-template-columns:repeat(4,1fr);height:100%}
+.grid-cell{
+  background:var(--cell-bg);border-radius:calc(var(--radius) - 2px);
+  border:1px solid rgba(255,255,255,.04);
+}
+.tile-container{position:absolute;top:var(--cell-gap);left:var(--cell-gap);right:var(--cell-gap);bottom:var(--cell-gap);pointer-events:none}
+#particleCanvas{position:absolute;top:var(--cell-gap);left:var(--cell-gap);width:calc(100% - var(--cell-gap)*2);height:calc(100% - var(--cell-gap)*2);pointer-events:none;z-index:10}
+
+.tile{
+  position:absolute;display:flex;align-items:center;justify-content:center;
+  font-weight:800;border-radius:var(--radius);
+  transition:transform .12s cubic-bezier(0.34,1.56,0.64,1);
+  will-change:transform;z-index:1;
+  backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);
+  box-shadow:0 4px 20px rgba(0,0,0,.08);
+  color:#fff;
+}
+.tile-new{animation:tile-appear .2s cubic-bezier(0.34,1.56,0.64,1)}
+.tile-merged{z-index:2;animation:tile-pop .25s ease;box-shadow:0 0 30px rgba(255,255,255,.3)}
+
+@keyframes tile-appear{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes tile-pop{
+  0%{transform:scale(1)}
+  30%{transform:scale(1.25)}
+  60%{transform:scale(.95)}
+  100%{transform:scale(1)}
+}
+
+.score-pop{animation:score-pop .3s ease}
+@keyframes score-pop{0%{transform:scale(1)}50%{transform:scale(1.2)}100%{transform:scale(1)}}
+
+.milestone-toast{
+  position:fixed;top:20%;left:50%;transform:translate(-50%,-50%);
+  font-size:2rem;font-weight:900;color:#ffd700;pointer-events:none;z-index:200;
+  text-shadow:0 0 30px rgba(255,215,0,.5);
+  animation:toast-float 1.2s ease forwards;
+}
+@keyframes toast-float{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}
+  20%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}
+  40%{transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-150%) scale(1)}
+}
+
+/* Overlay */
+.overlay{
+  position:absolute;inset:0;background:rgba(0,0,0,.55);border-radius:var(--radius);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:100;opacity:0;pointer-events:none;transition:opacity .4s ease;
+  backdrop-filter:blur(4px);
+}
+.overlay.active{opacity:1;pointer-events:auto}
+.overlay h2{font-size:clamp(2rem,7vw,3rem);font-weight:900;margin-bottom:8px;color:#fff}
+.overlay p{font-size:1rem;margin-bottom:20px;opacity:.8;color:rgba(255,255,255,.8)}
+.overlay .btn{font-size:1rem;padding:12px 28px}
+
+/* Footer */
+.footer{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:12px;flex-wrap:wrap}
+.combo-badge{
+  background:rgba(255,255,255,.12);backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,.15);border-radius:20px;
+  padding:4px 14px;font-size:12px;font-weight:700;color:var(--text-dim);
+  transition:all .25s ease;opacity:0;transform:scale(.8);
+}
+.combo-badge.active{opacity:1;transform:scale(1)}
+.combo-badge.hot{color:#ffd700;border-color:rgba(255,215,0,.4);background:rgba(255,215,0,.15);animation:combo-pulse .6s ease infinite}
+@keyframes combo-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+.hint{text-align:center;margin-top:4px;font-size:12px;opacity:.4}
+.undo-btn{font-size:12px;padding:6px 14px;opacity:.6}
+.undo-btn:disabled{opacity:.2;pointer-events:none}
+
+@media (max-width:420px){
+  :root{--cell-gap:6px;--container-px:10px;--container-py:10px;--radius:10px}
+  .score-box{min-width:66px;padding:4px 10px}
+  .score-box .value{font-size:16px}
+  .btn{padding:8px 14px;font-size:12px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="header">
+    <h1 class="title">2048</h1>
+    <div class="scores">
+      <div class="score-box">
+        <div class="label">得分</div>
+        <div class="value" id="score">0</div>
+      </div>
+      <div class="score-box">
+        <div class="label">最高</div>
+        <div class="value" id="best">0</div>
+      </div>
+    </div>
+    <button class="btn btn-icon" id="muteBtn" title="音效">🔊</button>
+    <button class="btn" id="newGameBtn">新游戏</button>
+  </header>
+
+  <div class="board-wrap">
+    <div class="board" id="board">
+      <div class="grid-cells" id="gridCells"></div>
+      <div class="tile-container" id="tileContainer"></div>
+      <canvas id="particleCanvas"></canvas>
+      <div class="overlay" id="overlay">
+        <h2 id="overlayTitle"></h2>
+        <p id="overlayMsg"></p>
+        <button class="btn" id="overlayBtn">再来一局</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <button class="btn undo-btn" id="undoBtn" disabled>↩ 撤销</button>
+    <div class="combo-badge" id="comboBadge"></div>
+  </div>
+  <p class="hint">← ↑ → ↓ 或 WASD · 滑动操作</p>
+</div>
+
+<script>
+// ===== JS 由后续 Task 逐步填充 =====
+</script>
+</body>
+</html>
