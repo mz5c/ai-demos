@@ -536,6 +536,127 @@ class InputManager {
     this.el.removeEventListener('mouseleave', this._onMouseLeave);
   }
 }
+
+/**
+ * ParticleFX — Canvas-based particle system with object pool.
+ * Emits particles on merge events, renders with requestAnimationFrame.
+ */
+class ParticleFX {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.pool = [];
+    this.active = [];
+    this.POOL_SIZE = 300;
+    this.running = false;
+
+    // Pre-allocate particle objects
+    for (let i = 0; i < this.POOL_SIZE; i++) {
+      this.pool.push({ x: 0, y: 0, vx: 0, vy: 0, radius: 3, color: '#fff', life: 0, maxLife: 0, gravity: 60 });
+    }
+  }
+
+  /** Resize canvas to match container */
+  resize(w, h) {
+    const dpr = window.devicePixelRatio || 1;
+    this.canvas.width = w * dpr;
+    this.canvas.height = h * dpr;
+    this.canvas.style.width = w + 'px';
+    this.canvas.style.height = h + 'px';
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.w = w; this.h = h;
+  }
+
+  _acquire() { return this.pool.pop() || null; }
+  _release(p) { if (this.pool.length < this.POOL_SIZE) this.pool.push(p); }
+
+  /**
+   * Emit particles at position.
+   * @param {number} x - center x in canvas coords
+   * @param {number} y - center y
+   * @param {string} color - hex color
+   * @param {number} count - number of particles
+   * @param {number} value - tile value (affects spread)
+   */
+  emit(x, y, color, count, value = 2) {
+    const spread = Math.min(value / 16, 3);
+    for (let i = 0; i < count; i++) {
+      const p = this._acquire();
+      if (!p) break;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 80 + Math.random() * 170 * spread;
+      p.x = x; p.y = y;
+      p.vx = Math.cos(angle) * speed;
+      p.vy = Math.sin(angle) * speed;
+      p.radius = 3 + Math.random() * 5;
+      p.color = color;
+      p.maxLife = 0.4 + Math.random() * 0.4;
+      p.life = p.maxLife;
+      p.gravity = 60;
+      this.active.push(p);
+    }
+    if (!this.running) this._startLoop();
+  }
+
+  /** Ring burst for milestones */
+  emitBurst(cx, cy, count = 70) {
+    const colors = ['#ffd700', '#ffaa00', '#ff6600', '#fff8dc'];
+    for (let i = 0; i < count; i++) {
+      const p = this._acquire();
+      if (!p) break;
+      const angle = (Math.PI * 2 / count) * i + (Math.random() - 0.5) * 0.3;
+      const speed = 150 + Math.random() * 200;
+      p.x = cx; p.y = cy;
+      p.vx = Math.cos(angle) * speed;
+      p.vy = Math.sin(angle) * speed;
+      p.radius = 3 + Math.random() * 6;
+      p.color = colors[Math.floor(Math.random() * colors.length)];
+      p.maxLife = 0.6 + Math.random() * 0.6;
+      p.life = p.maxLife;
+      p.gravity = 40;
+      this.active.push(p);
+    }
+    if (!this.running) this._startLoop();
+  }
+
+  _startLoop() {
+    this.running = true;
+    this._lastTime = performance.now();
+    this._tick = (now) => {
+      const dt = Math.min((now - this._lastTime) / 1000, 0.05);
+      this._lastTime = now;
+      this.ctx.clearRect(0, 0, this.w, this.h);
+      let hasActive = false;
+      for (let i = this.active.length - 1; i >= 0; i--) {
+        const p = this.active[i];
+        p.life -= dt;
+        if (p.life <= 0) {
+          this._release(p);
+          this.active.splice(i, 1);
+          continue;
+        }
+        hasActive = true;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += p.gravity * dt;
+        const alpha = p.life / p.maxLife;
+        this.ctx.globalAlpha = alpha;
+        this.ctx.fillStyle = p.color;
+        this.ctx.beginPath();
+        this.ctx.arc(p.x, p.y, p.radius * alpha, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+      this.ctx.globalAlpha = 1;
+      if (hasActive) {
+        requestAnimationFrame(this._tick);
+      } else {
+        this.running = false;
+        this.ctx.clearRect(0, 0, this.w, this.h);
+      }
+    };
+    requestAnimationFrame(this._tick);
+  }
+}
 </script>
 </body>
 </html>
