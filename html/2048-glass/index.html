@@ -227,7 +227,7 @@ class Board {
     let score = 0;
 
     for (let i = 0; i < tiles.length - 1; i++) {
-      if (tiles[i].value === tiles[i + 1].value) {
+      if (!tiles[i].isMerged && tiles[i].value === tiles[i + 1].value) {
         const val = tiles[i].value * 2;
         tiles[i] = null;
         tiles[i + 1] = { id: tiles[i + 1].id, value: val, isMerged: true };
