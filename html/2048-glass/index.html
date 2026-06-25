@@ -6,6 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#667eea">
+<link rel="manifest" href="data:application/json,{}">
 <title>2048 Glass</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -51,7 +52,7 @@ body{
 .board{
   position:relative;background:var(--board-bg);backdrop-filter:blur(12px);
   border-radius:var(--radius);padding:var(--cell-gap);aspect-ratio:1;width:100%;
-  overflow:hidden;touch-action:none;border:1px solid rgba(255,255,255,.1);
+  touch-action:none;border:1px solid rgba(255,255,255,.1);
 }
 .grid-cells{display:grid;gap:var(--cell-gap);grid-template-columns:repeat(4,1fr);height:100%}
 .grid-cell{
@@ -146,7 +147,7 @@ body{
         <div class="value" id="best">0</div>
       </div>
     </div>
-    <button class="btn btn-icon" id="muteBtn" title="音效">🔊</button>
+    <button class="btn btn-icon" id="muteBtn" title="音效" aria-label="切换音效">🔊</button>
     <button class="btn" id="newGameBtn">新游戏</button>
   </header>
 
@@ -154,8 +155,8 @@ body{
     <div class="board" id="board">
       <div class="grid-cells" id="gridCells"></div>
       <div class="tile-container" id="tileContainer"></div>
-      <canvas id="particleCanvas"></canvas>
-      <div class="overlay" id="overlay">
+      <canvas id="particleCanvas" aria-label="粒子特效"></canvas>
+      <div class="overlay" id="overlay" role="dialog" aria-modal="true">
         <h2 id="overlayTitle"></h2>
         <p id="overlayMsg"></p>
         <button class="btn" id="overlayBtn">再来一局</button>
