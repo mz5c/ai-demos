@@ -173,6 +173,161 @@ body{
 
 <script>
 // ===== JS 由后续 Task 逐步填充 =====
+
+/**
+ * Board — Pure data layer. 4×4 grid, slide/merge, win/lose detection.
+ * No DOM access, no side effects.
+ */
+class Board {
+  constructor(size = 4) {
+    this.size = size;
+    this.grid = [];
+    this._idCounter = 0;
+  }
+
+  init() {
+    this.grid = Array.from({ length: this.size }, () => Array(this.size).fill(null));
+    this._idCounter = 0;
+    this.addRandomTile();
+    this.addRandomTile();
+  }
+
+  _nextId() { return this._idCounter++; }
+
+  get(r, c) { return this.grid[r]?.[c] ?? null; }
+  set(r, c, tile) { this.grid[r][c] = tile; }
+
+  _eachCell(fn) {
+    for (let r = 0; r < this.size; r++)
+      for (let c = 0; c < this.size; c++)
+        fn(r, c, this.grid[r][c]);
+  }
+
+  _randomEmptyCell() {
+    const empty = [];
+    this._eachCell((r, c, t) => { if (!t) empty.push([r, c]); });
+    return empty.length ? empty[Math.floor(Math.random() * empty.length)] : null;
+  }
+
+  addRandomTile() {
+    const pos = this._randomEmptyCell();
+    if (!pos) return null;
+    const tile = { id: this._nextId(), value: Math.random() < 0.9 ? 2 : 4, isNew: true };
+    this.set(pos[0], pos[1], tile);
+    return tile;
+  }
+
+  /**
+   * Slide one row left, merge adjacent equal tiles.
+   * Returns the new row and score gained.
+   * Merged tiles reuse the second tile's id so DOM element follows.
+   */
+  _slideRow(row) {
+    let tiles = row.filter(t => t !== null);
+    let score = 0;
+
+    for (let i = 0; i < tiles.length - 1; i++) {
+      if (tiles[i].value === tiles[i + 1].value) {
+        const val = tiles[i].value * 2;
+        tiles[i] = null;
+        tiles[i + 1] = { id: tiles[i + 1].id, value: val, isMerged: true };
+        score += val;
+      }
+    }
+    tiles = tiles.filter(t => t !== null);
+    while (tiles.length < this.size) tiles.push(null);
+    return { row: tiles, score };
+  }
+
+  _moveLeft() {
+    let totalScore = 0, moved = false;
+    for (let r = 0; r < this.size; r++) {
+      const { row, score } = this._slideRow(this.grid[r]);
+      if (score) totalScore += score;
+      for (let c = 0; c < this.size; c++) {
+        if (this.grid[r][c] !== row[c]) moved = true;
+        this.grid[r][c] = row[c];
+      }
+    }
+    return { moved, score: totalScore };
+  }
+
+  /** Rotate grid 90° CCW — so "left" works for all 4 directions */
+  _rotateCCW() {
+    const n = this.size;
+    const ng = Array.from({ length: n }, () => Array(n).fill(null));
+    for (let r = 0; r < n; r++)
+      for (let c = 0; c < n; c++)
+        ng[r][c] = this.grid[c][n - 1 - r];
+    this.grid = ng;
+  }
+
+  _rotateCW() {
+    const n = this.size;
+    const ng = Array.from({ length: n }, () => Array(n).fill(null));
+    for (let r = 0; r < n; r++)
+      for (let c = 0; c < n; c++)
+        ng[r][c] = this.grid[n - 1 - c][r];
+    this.grid = ng;
+  }
+
+  /**
+   * Move in direction. Returns { moved, score, merged: [...] }.
+   * merged array: [{ row, col, value }]
+   */
+  move(direction) {
+    const dirMap = { up: 'ccw', down: 'cw', right: 'ccw2' };
+    const rot = dirMap[direction];
+
+    if (rot === 'ccw') this._rotateCCW();
+    else if (rot === 'cw') this._rotateCW();
+    else if (rot === 'ccw2') { this._rotateCCW(); this._rotateCCW(); }
+
+    const result = this._moveLeft();
+
+    // Collect merged tile info BEFORE rotating back
+    const merged = [];
+    this._eachCell((r, c, t) => {
+      if (t && t.isMerged) merged.push({ row: r, col: c, value: t.value });
+    });
+
+    if (rot === 'ccw') this._rotateCW();
+    else if (rot === 'cw') this._rotateCCW();
+    else if (rot === 'ccw2') { this._rotateCW(); this._rotateCW(); }
+
+    return { ...result, merged };
+  }
+
+  isGameOver() {
+    for (let r = 0; r < this.size; r++) {
+      for (let c = 0; c < this.size; c++) {
+        if (!this.grid[r][c]) return false;
+        if (c < this.size - 1 && this.grid[r][c+1] && this.grid[r][c].value === this.grid[r][c+1].value) return false;
+        if (r < this.size - 1 && this.grid[r+1][c] && this.grid[r][c].value === this.grid[r+1][c].value) return false;
+      }
+    }
+    return true;
+  }
+
+  hasWon() {
+    let won = false;
+    this._eachCell((r, c, t) => { if (t && t.value >= 2048) won = true; });
+    return won;
+  }
+
+  /** Deep-clone grid state for undo */
+  getSnapshot() {
+    return {
+      grid: this.grid.map(row => row.map(t => t ? { id: t.id, value: t.value } : null)),
+      idCounter: this._idCounter,
+    };
+  }
+
+  restoreSnapshot(snap) {
+    this.grid = snap.grid.map(row => row.map(t => t ? { ...t } : null));
+    this._idCounter = snap.idCounter;
+  }
+}
 </script>
 </body>
 </html>
