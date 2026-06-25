@@ -464,6 +464,78 @@ class Renderer {
     setTimeout(() => toast.remove(), 1300);
   }
 }
+
+/**
+ * InputManager — Unified input handling (keyboard + touch + mouse).
+ * Calls onMove(direction) callback with 'left'|'right'|'up'|'down'.
+ */
+class InputManager {
+  constructor(element, onMove) {
+    this.el = element;
+    this.onMove = onMove;
+    this._bindKeyboard();
+    this._bindTouch();
+    this._bindMouse();
+  }
+
+  _emit(dir) { if (this.onMove) this.onMove(dir); }
+
+  _bindKeyboard() {
+    this._onKey = (e) => {
+      const map = {
+        ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down',
+        a:'left',d:'right',w:'up',s:'down',
+      };
+      const dir = map[e.key];
+      if (dir) { e.preventDefault(); this._emit(dir); }
+    };
+    document.addEventListener('keydown', this._onKey);
+  }
+
+  _bindTouch() {
+    let sx, sy;
+    this._onTouchStart = (e) => {
+      const t = e.touches[0]; sx = t.clientX; sy = t.clientY;
+    };
+    this._onTouchEnd = (e) => {
+      if (sx == null) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - sx, dy = t.clientY - sy;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) { sx = sy = null; return; }
+      this._emit(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+      sx = sy = null;
+    };
+    this._onTouchCancel = () => { sx = sy = null; };
+    this.el.addEventListener('touchstart', this._onTouchStart, { passive: true });
+    this.el.addEventListener('touchend', this._onTouchEnd, { passive: true });
+    this.el.addEventListener('touchcancel', this._onTouchCancel, { passive: true });
+  }
+
+  _bindMouse() {
+    let down = false, mx, my;
+    this._onMouseDown = (e) => { down = true; mx = e.clientX; my = e.clientY; e.preventDefault(); };
+    this._onMouseUp = (e) => {
+      if (!down) return; down = false;
+      const dx = e.clientX - mx, dy = e.clientY - my;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
+      this._emit(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+    };
+    this._onMouseLeave = () => { down = false; };
+    this.el.addEventListener('mousedown', this._onMouseDown);
+    this.el.addEventListener('mouseup', this._onMouseUp);
+    this.el.addEventListener('mouseleave', this._onMouseLeave);
+  }
+
+  destroy() {
+    document.removeEventListener('keydown', this._onKey);
+    this.el.removeEventListener('touchstart', this._onTouchStart);
+    this.el.removeEventListener('touchend', this._onTouchEnd);
+    this.el.removeEventListener('touchcancel', this._onTouchCancel);
+    this.el.removeEventListener('mousedown', this._onMouseDown);
+    this.el.removeEventListener('mouseup', this._onMouseUp);
+    this.el.removeEventListener('mouseleave', this._onMouseLeave);
+  }
+}
 </script>
 </body>
 </html>
