@@ -453,7 +453,7 @@ class Renderer {
     toast.className = 'milestone-toast';
     toast.textContent = `\u{1F389} ${value}!`;
     document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 2300);
+    setTimeout(() => toast.remove(), 1300);
   }
 }
 
@@ -909,7 +909,6 @@ class Game2048 {
             this.overlay, '恭喜你！', '你达到了 2048！',
             '继续挑战', () => { this.keepPlaying = true; this.renderer.hideOverlay(this.overlay); }
           );
-          this._celebrateMilestone(2048);
         }, 1300);
       }
     }
@@ -930,6 +929,7 @@ class Game2048 {
     if (this.history.length === 0) return;
     const state = this.history.pop();
     this.board.restoreSnapshot(state.grid);
+    this.won = this.board.hasWon();
     this.score = state.score;
     this.comboCount = 0;
     this.renderer.render(this.board);
