@@ -23,3 +23,6 @@ target/
 .superpowers
 
 __pycache__
+
+# Docs (generated)
+/docs

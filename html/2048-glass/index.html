@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -27,7 +27,6 @@ body{
 
 .app{width:100%;max-width:500px}
 
-/* Header */
 .header{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px}
 .title{font-size:clamp(2.2rem,7vw,2.8rem);font-weight:900;line-height:1;letter-spacing:-2px;margin-right:auto;text-shadow:0 2px 10px rgba(0,0,0,.15)}
 .scores{display:flex;gap:8px}
@@ -47,7 +46,6 @@ body{
 .btn:active{transform:scale(.96)}
 .btn-icon{width:40px;height:40px;padding:0;display:flex;align-items:center;justify-content:center;font-size:18px}
 
-/* Board */
 .board-wrap{position:relative}
 .board{
   position:relative;background:var(--board-bg);backdrop-filter:blur(12px);
@@ -62,17 +60,33 @@ body{
 .tile-container{position:absolute;top:var(--cell-gap);left:var(--cell-gap);right:var(--cell-gap);bottom:var(--cell-gap);pointer-events:none}
 #particleCanvas{position:absolute;top:var(--cell-gap);left:var(--cell-gap);width:calc(100% - var(--cell-gap)*2);height:calc(100% - var(--cell-gap)*2);pointer-events:none;z-index:10}
 
-.tile{
-  position:absolute;display:flex;align-items:center;justify-content:center;
-  font-weight:800;border-radius:var(--radius);
+.tile-wrapper{
+  position:absolute;z-index:1;
   transition:transform .12s cubic-bezier(0.34,1.56,0.64,1);
-  will-change:transform;z-index:1;
+  will-change:transform;
+}
+.tile-wrapper.is-merged{z-index:2}
+.tile{
+  display:flex;align-items:center;justify-content:center;
+  width:100%;height:100%;font-weight:800;border-radius:var(--radius);
   backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);
   box-shadow:0 4px 20px rgba(0,0,0,.08);
   color:#fff;
 }
+.tile-2{background:rgba(238,228,218,.88);color:#776e65}
+.tile-4{background:rgba(237,224,200,.88);color:#776e65}
+.tile-8{background:rgba(242,177,121,.88);color:#f9f6f2}
+.tile-16{background:rgba(245,149,99,.88);color:#f9f6f2}
+.tile-32{background:rgba(246,124,95,.88);color:#f9f6f2}
+.tile-64{background:rgba(246,94,59,.88);color:#f9f6f2}
+.tile-128{background:rgba(237,207,114,.88);color:#f9f6f2;box-shadow:0 0 20px rgba(237,207,114,.2)}
+.tile-256{background:rgba(237,204,97,.88);color:#f9f6f2;box-shadow:0 0 20px rgba(237,204,97,.25)}
+.tile-512{background:rgba(237,200,80,.88);color:#f9f6f2;box-shadow:0 0 20px rgba(237,200,80,.3)}
+.tile-1024{background:rgba(237,197,63,.9);color:#f9f6f2;box-shadow:0 0 25px rgba(237,197,63,.35)}
+.tile-2048{background:rgba(237,194,46,.92);color:#f9f6f2;box-shadow:0 0 35px rgba(237,194,46,.5)}
+.tile-super{background:rgba(60,58,50,.92);color:#f9f6f2;box-shadow:0 0 35px rgba(200,180,80,.5)}
 .tile-new{animation:tile-appear .2s cubic-bezier(0.34,1.56,0.64,1)}
-.tile-merged{z-index:2;animation:tile-pop .25s ease;box-shadow:0 0 30px rgba(255,255,255,.3)}
+.tile-merged{animation:tile-pop .25s ease;box-shadow:0 0 30px rgba(255,255,255,.3)}
 
 @keyframes tile-appear{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}
 @keyframes tile-pop{
@@ -98,7 +112,6 @@ body{
   100%{opacity:0;transform:translate(-50%,-150%) scale(1)}
 }
 
-/* Overlay */
 .overlay{
   position:absolute;inset:0;background:rgba(0,0,0,.55);border-radius:var(--radius);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -110,7 +123,6 @@ body{
 .overlay p{font-size:1rem;margin-bottom:20px;opacity:.8;color:rgba(255,255,255,.8)}
 .overlay .btn{font-size:1rem;padding:12px 28px}
 
-/* Footer */
 .footer{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:12px;flex-wrap:wrap}
 .combo-badge{
   background:rgba(255,255,255,.12);backdrop-filter:blur(6px);
@@ -139,45 +151,39 @@ body{
     <h1 class="title">2048</h1>
     <div class="scores">
       <div class="score-box">
-        <div class="label">寰楀垎</div>
+        <div class="label">得分</div>
         <div class="value" id="score">0</div>
       </div>
       <div class="score-box">
-        <div class="label">鏈€楂?/div>
+        <div class="label">最高</div>
         <div class="value" id="best">0</div>
       </div>
     </div>
-    <button class="btn btn-icon" id="muteBtn" title="闊虫晥" aria-label="鍒囨崲闊虫晥">馃攰</button>
-    <button class="btn" id="newGameBtn">鏂版父鎴?/button>
+    <button class="btn btn-icon" id="muteBtn" title="音效" aria-label="切换音效">🔊</button>
+    <button class="btn" id="newGameBtn">新游戏</button>
   </header>
 
   <div class="board-wrap">
     <div class="board" id="board">
       <div class="grid-cells" id="gridCells"></div>
       <div class="tile-container" id="tileContainer"></div>
-      <canvas id="particleCanvas" aria-label="绮掑瓙鐗规晥"></canvas>
+      <canvas id="particleCanvas" aria-label="粒子特效"></canvas>
       <div class="overlay" id="overlay" role="dialog" aria-modal="true">
         <h2 id="overlayTitle"></h2>
         <p id="overlayMsg"></p>
-        <button class="btn" id="overlayBtn">鍐嶆潵涓€灞€</button>
+        <button class="btn" id="overlayBtn">再来一局</button>
       </div>
     </div>
   </div>
 
   <div class="footer">
-    <button class="btn undo-btn" id="undoBtn" disabled>鈫?鎾ら攢</button>
+    <button class="btn undo-btn" id="undoBtn" disabled>↩ 撤销</button>
     <div class="combo-badge" id="comboBadge"></div>
   </div>
-  <p class="hint">鈫?鈫?鈫?鈫?鎴?WASD 路 婊戝姩鎿嶄綔</p>
+  <p class="hint">← ↑ → ↓ 或 WASD · 滑动操作</p>
 </div>
 
 <script>
-// ===== JS 鐢卞悗缁?Task 閫愭濉厖 =====
-
-/**
- * Board 鈥?Pure data layer. 4脳4 grid, slide/merge, win/lose detection.
- * No DOM access, no side effects.
- */
 class Board {
   constructor(size = 4) {
     this.size = size;
@@ -217,11 +223,6 @@ class Board {
     return tile;
   }
 
-  /**
-   * Slide one row left, merge adjacent equal tiles.
-   * Returns the new row and score gained.
-   * Merged tiles reuse the second tile's id so DOM element follows.
-   */
   _slideRow(row) {
     let tiles = row.filter(t => t !== null);
     let score = 0;
@@ -252,7 +253,6 @@ class Board {
     return { moved, score: totalScore };
   }
 
-  /** Rotate grid 90掳 CCW 鈥?so "left" works for all 4 directions */
   _rotateCCW() {
     const n = this.size;
     const ng = Array.from({ length: n }, () => Array(n).fill(null));
@@ -271,10 +271,6 @@ class Board {
     this.grid = ng;
   }
 
-  /**
-   * Move in direction. Returns { moved, score, merged: [...] }.
-   * merged array: [{ row, col, value }]
-   */
   move(direction) {
     const dirMap = { up: 'ccw', down: 'cw', right: 'ccw2' };
     const rot = dirMap[direction];
@@ -285,7 +281,6 @@ class Board {
 
     const result = this._moveLeft();
 
-    // Collect merged tile info BEFORE rotating back
     const merged = [];
     this._eachCell((r, c, t) => {
       if (t && t.isMerged) merged.push({ row: r, col: c, value: t.value });
@@ -315,7 +310,6 @@ class Board {
     return won;
   }
 
-  /** Deep-clone grid state for undo */
   getSnapshot() {
     return {
       grid: this.grid.map(row => row.map(t => t ? { id: t.id, value: t.value } : null)),
@@ -329,21 +323,16 @@ class Board {
   }
 }
 
-/**
- * Renderer 鈥?DOM-based tile rendering with CSS transition/animation.
- * Reads Board data, creates/updates tile elements.
- */
 class Renderer {
   constructor(boardEl, tileContainer, gridCells) {
     this.boardEl = boardEl;
     this.tileContainer = tileContainer;
     this.gridCells = gridCells;
-    this.tileEls = new Map(); // tile.id 鈫?HTMLElement
+    this.tileEls = new Map();
     this.cellSize = 0;
     this.gap = 0;
     this.size = 4;
 
-    // Create static background cells
     for (let i = 0; i < this.size * this.size; i++) {
       const cell = document.createElement('div');
       cell.className = 'grid-cell';
@@ -374,52 +363,55 @@ class Renderer {
     return 'tile-super';
   }
 
-  /** Full render from Board state */
   render(board) {
-    // Remove stale tile elements
     const activeIds = new Set();
     board._eachCell((r, c, t) => { if (t) activeIds.add(t.id); });
     this.tileEls.forEach((el, id) => {
       if (!activeIds.has(id)) { el.remove(); this.tileEls.delete(id); }
     });
 
-    // Create or update tile elements
     board._eachCell((r, c, tile) => {
       if (!tile) return;
-      let el = this.tileEls.get(tile.id);
-      if (!el) {
-        el = document.createElement('div');
-        el.className = 'tile';
-        this.tileContainer.appendChild(el);
-        this.tileEls.set(tile.id, el);
+      let wrapper = this.tileEls.get(tile.id);
+      if (!wrapper) {
+        wrapper = document.createElement('div');
+        wrapper.className = 'tile-wrapper';
+        const inner = document.createElement('div');
+        inner.className = 'tile';
+        wrapper.appendChild(inner);
+        this.tileContainer.appendChild(wrapper);
+        this.tileEls.set(tile.id, wrapper);
       }
 
-      el.style.transform = this._tilePos(r, c);
-      el.style.width = this._tileSize();
-      el.style.height = this._tileSize();
-      el.textContent = tile.value;
-      el.className = 'tile ' + this._tileClass(tile.value);
+      const inner = wrapper.firstChild;
+
+      wrapper.style.transform = this._tilePos(r, c);
+      wrapper.style.width = this._tileSize();
+      wrapper.style.height = this._tileSize();
+      wrapper.style.zIndex = tile.isMerged ? '2' : '1';
+
+      inner.textContent = tile.value;
+      inner.className = 'tile ' + this._tileClass(tile.value);
 
       if (tile.isNew) {
-        el.classList.add('tile-new');
+        inner.classList.add('tile-new');
         tile.isNew = false;
-        setTimeout(() => el.classList.remove('tile-new'), 220);
+        setTimeout(() => inner.classList.remove('tile-new'), 220);
       }
       if (tile.isMerged) {
-        el.classList.add('tile-merged');
+        inner.classList.add('tile-merged');
         tile.isMerged = false;
-        setTimeout(() => el.classList.remove('tile-merged'), 270);
+        setTimeout(() => {
+          inner.classList.remove('tile-merged');
+          wrapper.style.zIndex = '1';
+        }, 270);
       }
     });
   }
 
-  /** Return pixel position of a grid cell center (for particle emission) */
   cellCenter(row, col) {
     const step = this.cellSize + this.gap;
-    return {
-      x: col * step + this.cellSize / 2,
-      y: row * step + this.cellSize / 2,
-    };
+    return { x: col * step + this.cellSize / 2, y: row * step + this.cellSize / 2 };
   }
 
   updateScore(scoreEl, bestEl, score, best) {
@@ -461,14 +453,10 @@ class Renderer {
     toast.className = 'milestone-toast';
     toast.textContent = `\u{1F389} ${value}!`;
     document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 1300);
+    setTimeout(() => toast.remove(), 2300);
   }
 }
 
-/**
- * InputManager 鈥?Unified input handling (keyboard + touch + mouse).
- * Calls onMove(direction) callback with 'left'|'right'|'up'|'down'.
- */
 class InputManager {
   constructor(element, onMove) {
     this.el = element;
@@ -537,10 +525,6 @@ class InputManager {
   }
 }
 
-/**
- * ParticleFX 鈥?Canvas-based particle system with object pool.
- * Emits particles on merge events, renders with requestAnimationFrame.
- */
 class ParticleFX {
   constructor(canvas) {
     this.canvas = canvas;
@@ -550,13 +534,11 @@ class ParticleFX {
     this.POOL_SIZE = 300;
     this.running = false;
 
-    // Pre-allocate particle objects
     for (let i = 0; i < this.POOL_SIZE; i++) {
       this.pool.push({ x: 0, y: 0, vx: 0, vy: 0, radius: 3, color: '#fff', life: 0, maxLife: 0, gravity: 60 });
     }
   }
 
-  /** Resize canvas to match container */
   resize(w, h) {
     const dpr = window.devicePixelRatio || 1;
     this.canvas.width = w * dpr;
@@ -570,14 +552,6 @@ class ParticleFX {
   _acquire() { return this.pool.pop() || null; }
   _release(p) { if (this.pool.length < this.POOL_SIZE) this.pool.push(p); }
 
-  /**
-   * Emit particles at position.
-   * @param {number} x - center x in canvas coords
-   * @param {number} y - center y
-   * @param {string} color - hex color
-   * @param {number} count - number of particles
-   * @param {number} value - tile value (affects spread)
-   */
   emit(x, y, color, count, value = 2) {
     const spread = Math.min(value / 16, 3);
     for (let i = 0; i < count; i++) {
@@ -598,7 +572,6 @@ class ParticleFX {
     if (!this.running) this._startLoop();
   }
 
-  /** Ring burst for milestones */
   emitBurst(cx, cy, count = 70) {
     const colors = ['#ffd700', '#ffaa00', '#ff6600', '#fff8dc'];
     for (let i = 0; i < count; i++) {
@@ -658,10 +631,6 @@ class ParticleFX {
   }
 }
 
-/**
- * AudioEngine 鈥?Web Audio API sound synthesis (zero file dependencies).
- * Lazy-init AudioContext on first user interaction (browser autoplay policy).
- */
 class AudioEngine {
   constructor() {
     this.ctx = null;
@@ -679,7 +648,6 @@ class AudioEngine {
     return this.muted;
   }
 
-  /** Generate short noise buffer for slide effect */
   _noiseBuffer(duration) {
     const sr = this.ctx.sampleRate;
     const len = sr * duration;
@@ -721,7 +689,6 @@ class AudioEngine {
         break;
       }
       case 'merge-medium': {
-        // Main tone
         const osc1 = ctx.createOscillator();
         osc1.type = 'sine';
         osc1.frequency.setValueAtTime(330, now);
@@ -731,7 +698,6 @@ class AudioEngine {
         g1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
         osc1.connect(g1).connect(ctx.destination);
         osc1.start(now); osc1.stop(now + 0.15);
-        // Harmonic overtone
         const osc2 = ctx.createOscillator();
         osc2.type = 'sine';
         osc2.frequency.setValueAtTime(660, now);
@@ -753,7 +719,6 @@ class AudioEngine {
         g1.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
         osc1.connect(g1).connect(ctx.destination);
         osc1.start(now); osc1.stop(now + 0.25);
-        // Fifth overtone
         const osc2 = ctx.createOscillator();
         osc2.type = 'sine';
         osc2.frequency.setValueAtTime(330, now);
@@ -778,7 +743,7 @@ class AudioEngine {
         break;
       }
       case 'milestone': {
-        const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
+        const notes = [523.25, 659.25, 783.99, 1046.5];
         notes.forEach((freq, i) => {
           const osc = ctx.createOscillator();
           osc.type = 'sine';
@@ -808,11 +773,6 @@ class AudioEngine {
   }
 }
 
-
-/**
- * Game2048 — Main controller. Coordinates Board, Renderer, ParticleFX,
- * AudioEngine, and InputManager. Manages score, combo, undo, milestones.
- */
 class Game2048 {
   constructor() {
     this.size = 4;
@@ -822,10 +782,9 @@ class Game2048 {
     this.over = false;
     this.won = false;
     this.keepPlaying = false;
-    this.history = [];        // undo stack (max 5)
+    this.history = [];
     this.reachedMilestones = new Set();
 
-    // DOM refs
     this.boardEl = document.getElementById('board');
     this.scoreEl = document.getElementById('score');
     this.bestEl = document.getElementById('best');
@@ -835,7 +794,6 @@ class Game2048 {
     this.muteBtn = document.getElementById('muteBtn');
     this.particleCanvas = document.getElementById('particleCanvas');
 
-    // Subsystems
     this.board = new Board(this.size);
     this.renderer = new Renderer(
       this.boardEl,
@@ -846,12 +804,10 @@ class Game2048 {
     this.particles = new ParticleFX(this.particleCanvas);
     this.input = new InputManager(this.boardEl, (dir) => this._onMove(dir));
 
-    // Init canvas size
     const tileContainer = document.getElementById('tileContainer');
     const tcRect = tileContainer.getBoundingClientRect();
     this.particles.resize(tcRect.width, tcRect.height);
 
-    // UI bindings
     document.getElementById('newGameBtn').addEventListener('click', () => this.newGame());
     this.undoBtn.addEventListener('click', () => this.undo());
     this.muteBtn.addEventListener('click', () => this._toggleMute());
@@ -861,14 +817,12 @@ class Game2048 {
       this.particles.resize(tcr.width, tcr.height);
     });
 
-    // Init display
     this.bestEl.textContent = this.best;
     this._updateMuteIcon();
     this.board.init();
     this.renderer.render(this.board);
   }
 
-  /** Start a new game */
   newGame() {
     this.board.init();
     this.score = 0;
@@ -886,11 +840,9 @@ class Game2048 {
     this.renderer.render(this.board);
   }
 
-  /** Handle a move in given direction */
   _onMove(direction) {
     if (this.over) return;
 
-    // Save state for undo BEFORE moving
     this.history.push({
       grid: this.board.getSnapshot(),
       score: this.score,
@@ -900,14 +852,12 @@ class Game2048 {
 
     const result = this.board.move(direction);
     if (!result.moved) {
-      this.history.pop(); // no move, discard undo state
+      this.history.pop();
       return;
     }
 
-    // Sound: slide
     this.audio.play('slide');
 
-    // Update combo
     if (result.merged.length > 0) {
       this.comboCount++;
       const totalMerged = result.merged.reduce((s, m) => s + m.value, 0);
@@ -920,21 +870,17 @@ class Game2048 {
       this.comboCount = 0;
     }
 
-    // Update best score
     if (this.score > this.best) {
       this.best = this.score;
       localStorage.setItem('best2048glass', this.best);
     }
 
-    // Spawn new tile
     this.board.addRandomTile();
 
-    // Render
     this.renderer.render(this.board);
     this.renderer.updateScore(this.scoreEl, this.bestEl, this.score, this.best);
     this.renderer.showCombo(this.comboBadge, this.comboCount);
 
-    // Particles & sound for each merge
     result.merged.forEach(m => {
       const pos = this.renderer.cellCenter(m.row, m.col);
       const hex = this._tileHex(m.value);
@@ -945,19 +891,16 @@ class Game2048 {
       else if (m.value < 512) this.audio.play('merge-medium');
       else this.audio.play('merge-large');
 
-      // Vibration
       if (navigator.vibrate) {
         const dur = m.value < 64 ? 15 : m.value < 512 ? 30 : 50;
         navigator.vibrate(dur);
       }
 
-      // Milestone check
       this._checkMilestone(m.value);
     });
 
     this._updateUndoBtn();
 
-    // Win / Game over check
     if (!this.won && this.board.hasWon()) {
       this.won = true;
       if (!this.keepPlaying) {
@@ -967,7 +910,7 @@ class Game2048 {
             '继续挑战', () => { this.keepPlaying = true; this.renderer.hideOverlay(this.overlay); }
           );
           this._celebrateMilestone(2048);
-        }, 300);
+        }, 1300);
       }
     }
 
@@ -979,17 +922,16 @@ class Game2048 {
           this.overlay, '游戏结束', '没有可用的移动了',
           '再来一局', () => this.newGame()
         );
-      }, 400);
+      }, 1400);
     }
   }
 
-  /** Undo last move */
   undo() {
     if (this.history.length === 0) return;
     const state = this.history.pop();
     this.board.restoreSnapshot(state.grid);
     this.score = state.score;
-    this.comboCount = 0; // reset combo on undo
+    this.comboCount = 0;
     this.renderer.render(this.board);
     this.renderer.updateScore(this.scoreEl, this.bestEl, this.score, this.best);
     this.renderer.showCombo(this.comboBadge, 0);
@@ -1010,24 +952,22 @@ class Game2048 {
     this.muteBtn.textContent = muted ? '🔇' : '🔊';
   }
 
-  /** Number of particles based on merge value */
   _particleCount(value) {
     if (value < 64) return 8 + Math.floor(Math.random() * 5);
     if (value < 256) return 15 + Math.floor(Math.random() * 11);
     return 25 + Math.floor(Math.random() * 16);
   }
 
-  /** Approximate hex color for a tile value (for particle tinting) */
   _tileHex(value) {
-    if (value <= 4) return '#ffffff';
-    if (value <= 16) return '#ffa064';
-    if (value <= 64) return '#ff5a28';
-    if (value <= 256) return '#f0c850';
-    if (value <= 1024) return '#f0b428';
-    return '#ffd700';
+    if (value === 2) return '#eee4da';
+	    if (value === 4) return '#ede0c8';
+    if (value <= 16) return '#f2b179';
+    if (value <= 64) return '#f67c5f';
+    if (value <= 256) return '#edcf72';
+    if (value <= 1024) return '#edc850';
+    return '#edc22e';
   }
 
-  /** Check and trigger milestone celebration */
   _checkMilestone(value) {
     const milestones = [256, 512, 1024, 2048, 4096];
     if (milestones.includes(value) && !this.reachedMilestones.has(value)) {
@@ -1037,18 +977,13 @@ class Game2048 {
   }
 
   _celebrateMilestone(value) {
-    // Toast message
     this.renderer.showMilestone(value);
-    // Sound
     this.audio.play('milestone');
-    // Center burst
     const tcRect = document.getElementById('tileContainer').getBoundingClientRect();
     this.particles.emitBurst(tcRect.width / 2, tcRect.height / 2, 70);
-    // Dynamic background shift toward gold
     this._updateBackgroundGradient(value);
   }
 
-  /** Shift background gradient toward gold as higher tiles appear */
   _updateBackgroundGradient(value) {
     const maxTile = Math.max(
       ...this.board.grid.flat().map(t => t ? t.value : 0)
@@ -1065,7 +1000,6 @@ class Game2048 {
   }
 }
 
-// ========== Instantiate ==========
 const game = new Game2048();
 </script>
 </body>
